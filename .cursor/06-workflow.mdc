@@ -1,0 +1,99 @@
+---
+description: Git, environment, and workflow rules
+alwaysApply: true
+---
+
+# AutoCSR — Git & Workflow Rules
+
+## Secrets — Absolute Rules
+
+- **Never commit `.env.local`** — it's in `.gitignore`, keep it there
+- **Never hardcode secrets** in source files — no API keys, tokens, or passwords in code
+- **Never log secrets** — don't `console.log(process.env.RESEND_API_KEY)`
+- All secrets accessed via `process.env.VAR_NAME!` — the `!` asserts the var exists
+- Add missing env vars to `.env.example` with placeholder values immediately
+
+## .gitignore Essentials
+```
+.env.local
+.env*.local
+*.gguf          # model weights — too large for git
+*.bin           # model binaries
+/pipeline/data/ # training datasets
+/pipeline/checkpoints/
+node_modules/
+.next/
+dist/
+__pycache__/
+*.pyc
+.venv/
+```
+
+## Commit Messages — Conventional Commits
+```
+feat(extension): add image capture via canvas API
+fix(cache): correct tenant_id filter in vector query
+feat(agents): add withdrawal LoRA adapter
+chore(deps): bump unsloth to 2026.6.1
+docs(readme): update setup instructions
+refactor(router): extract intent classifier to separate module
+```
+
+Format: `<type>(<scope>): <description>`
+Types: `feat` `fix` `chore` `docs` `refactor` `test` `ci`
+
+## Environment Variables — Validation at Startup
+
+Add this to `lib/env.ts` — import in `app/layout.tsx` to catch missing vars early:
+
+```typescript
+const required = [
+  'DATABASE_URL',
+  'RESEND_API_KEY',
+  'UPSTASH_REDIS_REST_URL',
+  'UPSTASH_REDIS_REST_TOKEN',
+  'UPSTASH_VECTOR_REST_URL',
+  'UPSTASH_VECTOR_REST_TOKEN',
+  'AUTH_SECRET',
+] as const
+
+for (const key of required) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`)
+  }
+}
+```
+
+## Quick Command Reference
+
+```bash
+# Dev
+bun run dev                    # Next.js with Turbopack
+bun run --filter=web dev       # if using monorepo
+
+# Database
+bun run db:push                # push schema to Neon (dev)
+bun run db:generate            # regenerate Prisma client after schema change
+bun run db:studio              # open Prisma Studio
+
+# Extension
+cd packages/extension && bun run build
+# Load dist/ as unpacked in chrome://extensions
+
+# Shadcn components
+bunx shadcn add button input card dialog table badge tabs
+
+# Email preview
+bun run email:dev              # localhost:3001
+
+# Python inference
+cd apps/inference
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# Training pipeline
+python pipeline/convert.py --input ./sessions --output ./data/train.jsonl
+python pipeline/quality_score.py --input ./data/train.jsonl --output ./data/scored.jsonl
+python pipeline/finetune.py --data ./data/scored.jsonl
+```

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AutoCSR Collector</title>
+    <style>
+      body { width: 280px; padding: 16px; font-family: sans-serif; background: #0f0f14; color: #fff; margin: 0; }
+      h1 { font-size: 14px; font-weight: 700; margin: 0 0 12px; }
+      button { width: 100%; padding: 8px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; margin-bottom: 8px; }
+      #start { background: #4f46e5; color: #fff; }
+      #stop { background: #1e1e2a; color: #a5b4fc; border: 1px solid #2a2a3a; }
+      #export { background: #16161f; color: #6ee7b7; border: 1px solid #2a2a3a; }
+      #status { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 8px; }
+    </style>
+  </head>
+  <body>
+    <h1>AutoCSR Collector</h1>
+    <button id="start">Start Session</button>
+    <button id="stop">Stop Session</button>
+    <button id="export">Export (Encrypted)</button>
+    <div id="status">Status: idle</div>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

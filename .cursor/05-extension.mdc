@@ -1,0 +1,204 @@
+---
+description: Chrome extension rules — applies to packages/extension/
+globs: ["packages/extension/**/*.ts", "packages/extension/**/*.tsx"]
+alwaysApply: false
+---
+
+# AutoCSR — Chrome Extension Rules (MV3)
+
+## Authorization Context
+This extension is authorized by signed Data Access Agreement (OKBET-TECHSCI-DAA-FINAL, June 2 2026).
+Collection window: June 2 – December 2, 2026.
+Authorized IPs: 153.53.253.81, 89.117.176.115, 103.170.173.26.
+
+---
+
+## Hard Rules — Never Violate
+
+### Zero network calls
+```typescript
+// ❌ NEVER — no calls to any external endpoint
+fetch('https://api.autocsr.io/sessions', { method: 'POST', body: ... })
+chrome.runtime.sendNativeMessage(...)
+XMLHttpRequest
+
+// ✅ Only storage targets allowed
+chrome.storage.local.set(...)
+chrome.storage.session.get(...)
+```
+
+### Encrypt before every write
+```typescript
+// ❌ Never write plaintext to storage
+await chrome.storage.local.set({ message: rawText })
+
+// ✅ Always encrypt first
+const encrypted = await vault.encrypt(rawText)
+await chrome.storage.local.set({ message: encrypted })
+```
+
+### ARIA + data-attributes only — never CSS classes
+```typescript
+// ❌ CSS classes break when LiveAgent deploys an update
+document.querySelectorAll('.lt-message-text')
+document.querySelectorAll('.chat-bubble-content')
+
+// ✅ Stable selectors
+document.querySelector('[role="log"]')
+document.querySelectorAll('[data-testid*="message"]')
+document.querySelectorAll('[aria-label*="message"]')
+```
+
+---
+
+## MutationObserver Setup
+
+```typescript
+// Always observe the chat container, not document.body
+const chatRoot = document.querySelector('[role="log"]')
+              ?? document.querySelector('[data-testid*="chat-window"]')
+              ?? document.querySelector('[aria-label*="chat"]')
+
+if (!chatRoot) return  // LiveAgent not loaded yet — retry on next mutation
+
+observer.observe(chatRoot, {
+  childList:       true,
+  subtree:         true,
+  attributes:      true,
+  characterData:   false,          // don't observe text node changes — too noisy
+  attributeFilter: ['data-status', 'data-resolution-status', 'aria-label'],
+})
+```
+
+---
+
+## Extraction Priority Order
+
+Always try strategies in this order, stop at first match:
+
+1. `role="article"` inside `role="log"` — most semantic
+2. `[data-testid*="message"]` — LiveAgent's test IDs
+3. `[aria-label*="message"]` — ARIA labels
+4. Time-stamped `<p>` fallback — last resort
+
+Never use:
+- CSS class selectors (`.anything`)
+- Tag-only selectors (`div`, `span`, `p`) without an attribute qualifier
+- XPath
+
+---
+
+## PII Anonymization — Run Before Any Write
+
+```typescript
+// anonymizer.ts — apply to ALL text before storage
+function anonymize(text: string): string {
+  return text
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]')
+    .replace(/\b\d{10,16}\b/g, '[ACCOUNT_ID]')
+    .replace(/(?:my name is|i am|this is)\s+([A-Z][a-z]+ ?[A-Z]?[a-z]*)/gi, 'customer name is [NAME]')
+    .replace(/\+?[\d\s\-().]{10,}/g, '[PHONE]')
+    // Keep amount RANGES — important training signal for deposit queries
+    .replace(/(?:BDT|USD|INR|৳|\$)\s*([\d,]+(?:\.\d{2})?)/gi, (_, n) => {
+      const num = parseFloat(n.replace(/,/g, ''))
+      if (num < 1000)  return '[AMT_SM]'   // < 1K
+      if (num < 10000) return '[AMT_MD]'   // 1K–10K
+      return '[AMT_LG]'                     // > 10K
+    })
+}
+```
+
+---
+
+## Encryption — AES-GCM via Web Crypto
+
+```typescript
+// vault.ts pattern
+const KEY_STORAGE = 'cryptoKey'
+
+export async function getOrCreateKey(): Promise<CryptoKey> {
+  const stored = await chrome.storage.session.get(KEY_STORAGE)
+  if (stored[KEY_STORAGE]) {
+    return crypto.subtle.importKey(
+      'raw',
+      new Uint8Array(stored[KEY_STORAGE]),
+      'AES-GCM',
+      false,
+      ['encrypt', 'decrypt'],
+    )
+  }
+  const key = await crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt'],
+  )
+  const exported = await crypto.subtle.exportKey('raw', key)
+  await chrome.storage.session.set({ [KEY_STORAGE]: Array.from(new Uint8Array(exported)) })
+  return key
+}
+```
+
+Key notes:
+- Key stored in `chrome.storage.session` — cleared when browser closes (intentional)
+- Encrypted data stored in `chrome.storage.local` — persists across browser restarts
+- Each encrypted chunk has its own random IV — never reuse IVs
+
+---
+
+## Session XML Export Format
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<session
+  id="<uuid>"
+  start="<epoch_ms>"
+  end="<epoch_ms>"
+  outcome="resolved|escalated|abandoned"
+  resolution_ms="<number>"
+  collection_device_ip="<registered_ip>"
+>
+  <messages>
+    <message id="<uuid>" timestamp="<epoch_ms>" role="agent|customer">
+      <text><![CDATA[anonymized text]]></text>
+      <context
+        issue_type="deposit_failed|withdrawal_pending|kyc|onboarding|general"
+        category="<string>"
+        resolution_status="resolved|escalated|pending"
+      />
+      <media type="image|attachment" ref="[CAPTURED]" captured="true|false" />
+    </message>
+  </messages>
+</session>
+```
+
+---
+
+## Bun + Vite Build Config
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite'
+import { crx } from '@crxjs/vite-plugin'
+import manifest from './manifest.json'
+
+export default defineConfig({
+  plugins: [crx({ manifest })],
+  build: {
+    target:    'es2022',
+    sourcemap: true,         // for debugging in chrome://extensions
+    minify:    'esbuild',
+  },
+})
+```
+
+```json
+// package.json
+{
+  "scripts": {
+    "dev":   "vite build --watch",
+    "build": "vite build"
+  }
+}
+```
+
+Run: `bun run build` — outputs to `dist/`. Load `dist/` as unpacked extension.

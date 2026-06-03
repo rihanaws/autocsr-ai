@@ -1,0 +1,177 @@
+---
+description: Python inference service rules — applies to apps/inference/ and pipeline/
+globs: ["apps/inference/**/*.py", "pipeline/**/*.py"]
+alwaysApply: false
+---
+
+# AutoCSR — Python Inference Service Rules
+
+## Stack
+- **Python 3.11+** — use modern syntax (match, `|` unions, `X | None` instead of `Optional[X]`)
+- **FastAPI** — async throughout, Pydantic v2 for all models
+- **LangGraph** — multi-agent orchestration
+- **Ollama** — local inference client
+- **Together.ai** — production inference (Hermes-3 at $0.18/1M tokens)
+- **Unsloth** — fine-tuning (training pipeline only, not inference service)
+
+---
+
+## FastAPI Conventions
+
+### Always async
+```python
+# ✅
+@app.post("/api/infer")
+async def infer(req: QueryRequest) -> QueryResponse:
+    ...
+
+# ❌ Never sync route handlers
+@app.post("/api/infer")
+def infer(req: QueryRequest):
+    ...
+```
+
+### Pydantic v2 models
+```python
+from pydantic import BaseModel, Field, field_validator
+
+class QueryRequest(BaseModel):
+    session_id: str
+    tenant_id:  str
+    message:    str = Field(min_length=1, max_length=4096)
+    history:    list[dict[str, str]] = Field(default_factory=list)
+    context:    dict | None = None
+
+    @field_validator('tenant_id')
+    @classmethod
+    def tenant_id_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('tenant_id cannot be empty')
+        return v
+```
+
+### Error responses
+```python
+from fastapi import HTTPException
+
+# ✅ Structured errors
+raise HTTPException(status_code=422, detail={"code": "INVALID_TENANT", "message": "..."})
+
+# ❌ Never bare string errors in production
+raise HTTPException(status_code=500, detail="something broke")
+```
+
+---
+
+## LangGraph Rules
+
+### AgentState — always TypedDict
+```python
+from typing import TypedDict, Literal
+
+class AgentState(TypedDict):
+    query:        str
+    tenant_id:    str
+    embedding:    list[float]
+    intent:       Literal["deposit","withdrawal","verification","onboarding","general"] | None
+    response:     str | None
+    cache_hit:    bool
+    confidence:   float
+    guard_passed: bool
+    flagged:      bool
+    flag_reason:  str | None
+```
+
+### Graph construction — always use `add_conditional_edges` for routing
+- Every node function signature: `async def node_name(state: AgentState) -> AgentState`
+- Nodes must return the full state — never partial updates
+- Entry point set via `g.set_entry_point()` — never assume first-added = entry
+- Compile once at module level: `graph = build_graph()` — not per-request
+
+### Agent pattern (all 5 agents follow this)
+```python
+async def run(state: AgentState) -> AgentState:
+    knowledge = await fetch_knowledge(state["tenant_id"], state["query"], agent_type="deposit")
+    # ... generate response
+    state["response"] = response
+    state["confidence"] = confidence
+    return state
+```
+
+---
+
+## Multi-Agent Architecture
+
+### Model serving strategy
+- **Dev:** Ollama local — `AsyncClient()` from `ollama` package
+- **Prod:** Together.ai — Hermes-3-Llama-3.1-8B at `$0.18/1M` tokens
+- **One base model + N LoRA adapters** — never 5 separate model instances
+- Adapter naming: `csr-hermes-deposit`, `csr-hermes-withdrawal`, etc.
+- Temperature: always `0.1` for CSR responses — never above `0.3`
+
+### Router
+- GPT-4o-mini with structured output for MVP (cheap, fast, accurate)
+- Pydantic `IntentResult` model with `response_format=IntentResult`
+- Confidence < 0.7 → always route to `general` agent (safe fallback)
+- Never route to `verification` agent on confidence < 0.85 (KYC is sensitive)
+
+---
+
+## Semantic Cache
+
+- Upstash Vector index — initialized once at module level
+- Similarity threshold: `SIMILARITY_THRESHOLD = 0.92` — constant, not magic number
+- Embedding model: `nomic-embed-text` via Ollama, 768-dim
+- Cache key: `sha256(f"{tenant_id}:{query}")` — always tenant-scoped
+- TTL: `604800` (7 days) for quality_score ≥ 0.80, `86400` (24h) otherwise
+- Cache write is async and non-blocking — fire and forget after response is sent
+
+---
+
+## Auditor (LLM Judge)
+
+- Model: `claude-haiku-4-5-20251001` — cheapest capable model
+- Sample rate: `0.05` (5%) — constant at top of file
+- **Always async** — never block the main inference path
+- If Anthropic API errors: log and continue, never fail the user response
+- Score threshold for flagging: composite < 0.6 OR hallucination_risk > 0.5
+- Fire via `asyncio.create_task()` — not `await`
+
+---
+
+## Training Pipeline (pipeline/)
+
+### Data quality thresholds
+- Minimum quality score to include in training: `0.65`
+- High-quality threshold (2× weight): `0.90`
+- Minimum examples before training run: `200`
+- Recommended before production fine-tune: `500`
+
+### Replay buffer ratio
+- 70% historical (best examples from previous runs)
+- 30% new examples from current collection period
+- **Never fine-tune on new data only** — catastrophic forgetting
+
+### Unsloth config
+```python
+# These values are tested and validated — don't change without reason
+LORA_RANK    = 32
+LORA_ALPHA   = 64
+BATCH_SIZE   = 4
+GRAD_ACCUM   = 4   # effective batch = 16
+LR           = 2e-4
+EPOCHS       = 3
+MAX_SEQ_LEN  = 2048
+```
+
+---
+
+## Python Code Style
+
+- Type hints on every function — no bare `def func(x):`
+- f-strings for string formatting — not `.format()` or `%`
+- `pathlib.Path` for file paths — not `os.path`
+- `asyncio.gather()` for parallel async calls
+- Never `time.sleep()` in async code — use `await asyncio.sleep()`
+- `logging` module for structured logs — not bare `print()` in production code
+- Exception handling: catch specific exceptions, not bare `except:`

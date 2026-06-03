@@ -1,0 +1,191 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions", "driverAdapters"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgvector(map: "vector"), pgcrypto]
+}
+
+// ─── Auth (NextAuth v5 required tables) ─────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  tenant        Tenant?
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Domain ─────────────────────────────────────────────────────────────
+
+model Tenant {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  slug             String   @unique
+  tier             Tier     @default(FREE)
+  apiKey           String   @unique @default(dbgenerated("encode(gen_random_bytes(32), 'hex')"))
+  stripeCustomerId String?
+  stripeSubId      String?
+  createdAt        DateTime @default(now())
+
+  queryEvents     QueryEvent[]
+  knowledgeChunks KnowledgeChunk[]
+  reviewQueue     ReviewItem[]
+  trainingRuns    TrainingRun[]
+}
+
+enum Tier {
+  FREE
+  STARTER
+  GROWTH
+  ENTERPRISE
+}
+
+model QueryEvent {
+  id              String    @id @default(cuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  queryHash       String
+  queryText       String
+  responseText    String
+  agentType       AgentType
+  cacheHit        Boolean   @default(false)
+  resolved        Boolean   @default(false)
+  confidenceScore Float?
+  resolutionMs    Int?
+  modelVersion    String
+  auditorScore    Float?
+  flaggedForReview Boolean  @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, agentType])
+}
+
+enum AgentType {
+  DEPOSIT
+  WITHDRAWAL
+  VERIFICATION
+  ONBOARDING
+  GENERAL
+}
+
+model KnowledgeChunk {
+  id        String                    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  content   String
+  embedding Unsupported("vector(768)")?
+  source    String
+  agentType AgentType?
+  createdAt DateTime                  @default(now())
+
+  @@index([tenantId])
+}
+
+model ReviewItem {
+  id           String       @id @default(cuid())
+  tenantId     String
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  queryText    String
+  responseText String
+  agentType    AgentType
+  auditReason  String
+  auditScore   Float
+  status       ReviewStatus @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  correction   String?
+  createdAt    DateTime     @default(now())
+
+  @@index([tenantId, status])
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  CORRECTED
+  REJECTED
+}
+
+model TrainingRun {
+  id               String         @id @default(cuid())
+  tenantId         String
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  status           TrainingStatus @default(QUEUED)
+  examplesUsed     Int?
+  baseModelVersion String
+  adapterVersion   String?
+  evalAccuracy     Float?
+  evalDelta        Float?
+  promoted         Boolean        @default(false)
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime       @default(now())
+}
+
+enum TrainingStatus {
+  QUEUED
+  RUNNING
+  EVALUATING
+  PROMOTED
+  REJECTED
+  FAILED
+}
+
+model TrainingExample {
+  id           String    @id @default(cuid())
+  tenantId     String
+  queryText    String
+  responseText String
+  agentType    AgentType
+  qualityScore Float
+  sessionId    String?
+  used         Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+
+  @@index([tenantId, used, qualityScore])
+}

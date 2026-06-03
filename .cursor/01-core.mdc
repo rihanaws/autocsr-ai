@@ -1,0 +1,178 @@
+---
+description: AutoCSR core project rules — always applied
+alwaysApply: true
+---
+
+# AutoCSR — Core Project Rules
+
+## Identity
+This is **AutoCSR** — an AI-native CSR automation SaaS for online betting platforms.
+Owner: TechSci, Inc. / Sayem Abdullah Rihan.
+Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash · Python FastAPI · LangGraph · Hermes-3.
+
+---
+
+## Non-Negotiable Rules (Never Violate)
+
+### Package Manager
+- **Always use `bun`**, never `npm`, `yarn`, or `pnpm`
+- Install: `bun add <pkg>` / `bun add -d <pkg>`
+- Run scripts: `bun run <script>`
+- Execute binaries: `bunx <binary>`
+- Never write `npm install`, `npm run`, `npx` anywhere
+
+### TypeScript
+- **Strict mode always** — `"strict": true` in tsconfig, no exceptions
+- No `any` — use `unknown` + type guards if genuinely needed
+- No `as` casting unless you comment WHY it's safe
+- No `// @ts-ignore` — fix the type instead
+- Prefer `type` over `interface` for object shapes
+- Use `satisfies` operator for config objects
+
+### File & Folder Structure
+- **No `src/` folder** — all code at root level under `app/`, `components/`, `lib/`, etc.
+- Next.js App Router only — never Pages Router
+- Route groups: `(marketing)`, `(auth)`, `(dashboard)` — use parentheses for layout grouping
+- Co-locate component tests next to components: `button.test.tsx` beside `button.tsx`
+
+### Imports
+- Use `@/` path alias for all internal imports — never relative `../../`
+- External imports first, then `@/` imports, then relative (only within same directory)
+- No barrel files (`index.ts` re-exports) — they break tree shaking
+
+---
+
+## Next.js 15 Conventions
+
+### Server vs Client Components
+- **Default: Server Component** — no `'use client'` unless you need it
+- Add `'use client'` ONLY for: `useState`, `useEffect`, `useRef`, event handlers, browser APIs, Motion animations
+- Keep client boundaries as deep in the tree as possible — never at page level if avoidable
+- `'use server'` goes in Server Actions files only, not in components
+
+### Server Actions
+- All mutations go through Server Actions — never raw `fetch` POST from client
+- Server Actions live in `app/actions/` directory
+- Always return a typed state union: `{ status: 'success' | 'error' | 'idle'; ... }`
+- Use `useActionState` (React 19) for form state — not `useState` + `onSubmit`
+- Validate with Zod inside every Server Action before touching DB or external APIs
+
+### Data Fetching
+- Fetch in Server Components — pass data down as props
+- Use `cache()` from React for request deduplication where needed
+- Never `useEffect` + `fetch` for initial data — always server-side
+- Parallel fetching: `Promise.all([...])` in server components, not sequential awaits
+
+### Route Handlers (API Routes)
+- Live in `app/api/[route]/route.ts`
+- Export named functions: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
+- Always validate input — use Zod
+- Return `NextResponse.json()` with explicit status codes
+- Add `export const runtime = 'edge'` only if the route genuinely needs edge — default is Node
+
+---
+
+## Styling — Tailwind CSS v4
+
+- **No `tailwind.config.js`** — Tailwind v4 uses CSS-first config
+- Theme customization goes in `app/globals.css` under `@theme { ... }`
+- Import: `@import "tailwindcss"` at top of globals.css — no `@tailwind base/components/utilities`
+- Use CSS variables defined in `@theme` — not hardcoded hex values in className
+- Dark mode: use Tailwind's `dark:` variant — configure via CSS variable if needed
+- No inline `style={{}}` for things Tailwind can handle
+- Class order: layout → spacing → sizing → typography → color → state variants
+
+### Theme variables (reference)
+```css
+@theme {
+  --color-brand-500: #4f46e5;
+  --color-surface:   #0f0f14;
+  --color-surface-2: #16161f;
+  --font-display:    "Syne", sans-serif;
+  --font-body:       "DM Sans", sans-serif;
+  --font-mono:       "JetBrains Mono", monospace;
+}
+```
+
+---
+
+## Database — Prisma + Neon
+
+- **Prisma client singleton** — always import from `@/lib/db`, never `new PrismaClient()` directly
+- Use Neon serverless adapter (`@prisma/adapter-neon`) — configured in `lib/db.ts`
+- All schema changes: `bun run db:push` in dev, proper migration in prod
+- Never raw SQL unless pgvector operations that Prisma can't express
+- Always include `onDelete: Cascade` for tenant-scoped relations
+- Index every foreign key used in WHERE clauses
+
+### lib/db.ts pattern (singleton)
+```typescript
+import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { neon } from '@neondatabase/serverless'
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+
+export const db =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    adapter: new PrismaNeon(neon(process.env.DATABASE_URL!)),
+  })
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db
+```
+
+---
+
+## Cache — Upstash Redis + Upstash Vector
+
+- Redis client: import from `@/lib/redis` (singleton using `@upstash/redis`)
+- Vector client: import from `@/lib/vector` (singleton using `@upstash/vector`)
+- Semantic cache threshold: cosine similarity ≥ 0.92
+- TTL: 7 days (604800s) for quality_score ≥ 0.80, 24h (86400s) for edge cases
+- Never cache without a TTL — always set expiry
+
+---
+
+## Auth — NextAuth.js v5
+
+- Config in `lib/auth.ts` — export `{ auth, signIn, signOut, handlers }`
+- Route handler in `app/api/auth/[...nextauth]/route.ts`
+- Protect dashboard routes via middleware in `middleware.ts`
+- Never expose `session.user` server-side without verifying tenant ownership
+- Session includes: `userId`, `tenantId`, `tier` — add to session type in `auth.ts`
+
+---
+
+## Naming Conventions
+
+| Thing | Convention | Example |
+|-------|-----------|---------|
+| Files | kebab-case | `pilot-form.tsx` |
+| Components | PascalCase | `PilotForm` |
+| Server Actions | camelCase verb | `capturePilotLead` |
+| DB models | PascalCase | `QueryEvent` |
+| Env vars | SCREAMING_SNAKE | `RESEND_API_KEY` |
+| CSS variables | kebab-case with `--` | `--color-brand-500` |
+| Route segments | kebab-case | `review-queue` |
+
+---
+
+## Error Handling
+
+- Server Actions return typed error states — never throw to the client
+- Route handlers: always catch and return structured JSON errors
+- Never expose stack traces or internal error messages to the client
+- Log errors server-side with `console.error('[module] message:', err)`
+- Use `satisfies` on error return types to ensure discriminated unions are exhaustive
+
+---
+
+## Security
+
+- Validate EVERY input with Zod — no exceptions
+- Never trust `req.headers` or `formData` without parsing
+- Tenant isolation: every DB query MUST filter by `tenantId` from session — never trust client-provided tenantId
+- Stripe webhooks: always verify `stripe.webhooks.constructEvent()` signature
+- QStash webhooks: always verify signature before processing
+- No secrets in client components — only in Server Components and Server Actions

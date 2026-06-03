@@ -1,0 +1,12 @@
+{
+  "name": "autocsr",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "bun run --filter=web dev",
+    "build": "bun run --filter=web build",
+    "ext:build": "bun run --filter=extension build",
+    "db:push": "bun run --filter=web db:push",
+    "db:studio": "bun run --filter=web db:studio"
+  }
+}

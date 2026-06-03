@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "AutoCSR Data Collector",
+  "version": "0.1.0",
+  "description": "Collects anonymized CSR session data for AutoCSR AI training (authorized use only)",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["https://*.liveagent.com/*"],
+  "background": {
+    "service_worker": "src/background/service-worker.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.liveagent.com/*"],
+      "js": ["src/content/observer.ts"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "AutoCSR Collector"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

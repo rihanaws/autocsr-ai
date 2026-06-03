@@ -1,0 +1,275 @@
+---
+description: Database, cache, and API rules — Prisma, Neon, Upstash, multi-tenancy enforcement
+globs: ["lib/**/*.ts", "app/api/**/*.ts", "app/actions/**/*.ts", "prisma/**/*"]
+alwaysApply: false
+---
+
+# AutoCSR — Database, Cache & API Rules
+
+## Multi-Tenancy — Critical
+
+**Every single database query MUST be scoped to `tenantId`.**
+This is the most important rule in the entire codebase. Violating it leaks one customer's data to another.
+
+```typescript
+// ✅ CORRECT — always filter by tenantId
+const events = await db.queryEvent.findMany({
+  where: {
+    tenantId: session.user.tenantId,  // from auth session — never from client
+    createdAt: { gte: startOfMonth },
+  },
+})
+
+// ❌ WRONG — missing tenantId scope
+const events = await db.queryEvent.findMany({
+  where: { createdAt: { gte: startOfMonth } },
+})
+
+// ❌ WRONG — trusting client-provided tenantId
+const events = await db.queryEvent.findMany({
+  where: { tenantId: req.body.tenantId },  // attacker can set this to any tenant
+})
+```
+
+**Rule:** `tenantId` always comes from `session.user.tenantId` (verified by NextAuth). Never from request body, query params, or headers.
+
+---
+
+## Prisma Patterns
+
+### Always use the singleton
+```typescript
+// ✅
+import { db } from '@/lib/db'
+
+// ❌ Never instantiate directly
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
+```
+
+### Select only what you need
+```typescript
+// ✅ Explicit select — faster, smaller payload
+const tenant = await db.tenant.findUniqueOrThrow({
+  where:  { id: tenantId },
+  select: { tier: true, apiKey: true },
+})
+
+// ❌ Fetches everything including relations
+const tenant = await db.tenant.findUnique({ where: { id: tenantId } })
+```
+
+### Batch parallel queries
+```typescript
+// ✅ Parallel — both run simultaneously
+const [tenant, usage] = await Promise.all([
+  db.tenant.findUniqueOrThrow({ where: { id: tenantId } }),
+  db.queryEvent.count({ where: { tenantId, cacheHit: false } }),
+])
+
+// ❌ Sequential — twice as slow
+const tenant = await db.tenant.findUniqueOrThrow(...)
+const usage  = await db.queryEvent.count(...)
+```
+
+### Transactions for multi-step writes
+```typescript
+await db.$transaction([
+  db.queryEvent.create({ data: { ...eventData } }),
+  db.trainingExample.create({ data: { ...exampleData } }),
+])
+```
+
+### Error handling
+```typescript
+import { Prisma } from '@prisma/client'
+
+try {
+  await db.tenant.create({ data: { slug } })
+} catch (e) {
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === 'P2002') {
+      // Unique constraint violation — slug already taken
+      return { error: 'That company slug is already in use' }
+    }
+  }
+  throw e  // re-throw unexpected errors
+}
+```
+
+---
+
+## Tier Limit Enforcement
+
+Every API route and Server Action that processes a query MUST check tier limits first.
+
+```typescript
+import { enforceTierLimit } from '@/lib/tier-enforcement'
+
+// In route handler or server action:
+const { allowed, used, limit } = await enforceTierLimit(tenantId)
+
+if (!allowed) {
+  return {
+    status:  'error',
+    code:    'TIER_LIMIT_EXCEEDED',
+    message: `Monthly limit of ${limit} queries reached. Upgrade to continue.`,
+  }
+}
+```
+
+### Tier limits reference
+```
+free:       500  queries/month  — $0
+starter:    10_000             — $149
+growth:     50_000             — $499
+enterprise: unlimited          — custom
+```
+
+---
+
+## Upstash Redis
+
+### Client singleton
+```typescript
+// lib/redis.ts
+import { Redis } from '@upstash/redis'
+
+export const redis = new Redis({
+  url:   process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
+```
+
+### Key naming convention
+```
+<entity>:<tenantId>:<identifier>
+
+Examples:
+  session:<tenantId>:<sessionId>
+  ratelimit:<tenantId>
+  cache:hit-count:<tenantId>
+```
+
+### Always set TTL
+```typescript
+// ✅
+await redis.set(`session:${tenantId}:${id}`, data, { ex: 3600 })
+
+// ❌ Never set without expiry — storage grows unbounded
+await redis.set(`session:${tenantId}:${id}`, data)
+```
+
+---
+
+## Upstash Vector
+
+### Client singleton
+```typescript
+// lib/vector.ts
+import { Index } from '@upstash/vector'
+
+export const vectorIndex = new Index({
+  url:   process.env.UPSTASH_VECTOR_REST_URL!,
+  token: process.env.UPSTASH_VECTOR_REST_TOKEN!,
+})
+```
+
+### Always filter by tenantId in vector queries
+```typescript
+const results = await vectorIndex.query({
+  vector:          embedding,
+  topK:            1,
+  filter:          `tenant_id = "${tenantId}"`,  // required — never omit
+  includeMetadata: true,
+})
+```
+
+---
+
+## API Route Handler Pattern
+
+```typescript
+// app/api/chat/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
+import { z } from 'zod'
+
+const RequestSchema = z.object({
+  message:   z.string().min(1).max(4096),
+  sessionId: z.string().uuid(),
+})
+
+export async function POST(req: NextRequest): Promise<NextResponse> {
+  // 1. Auth check — always first
+  const session = await auth()
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // 2. Parse + validate body
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const parsed = RequestSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Validation failed', details: parsed.error.flatten() },
+      { status: 422 },
+    )
+  }
+
+  // 3. Tier limit check
+  const { allowed } = await enforceTierLimit(session.user.tenantId)
+  if (!allowed) {
+    return NextResponse.json({ error: 'TIER_LIMIT_EXCEEDED' }, { status: 429 })
+  }
+
+  // 4. Business logic
+  try {
+    const result = await processQuery(parsed.data, session.user.tenantId)
+    return NextResponse.json(result)
+  } catch (err) {
+    console.error('[api/chat] Unexpected error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+```
+
+---
+
+## Webhook Security
+
+### Stripe webhooks
+```typescript
+import Stripe from 'stripe'
+import { headers } from 'next/headers'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+
+export async function POST(req: NextRequest) {
+  const body = await req.text()  // raw body — not req.json()
+  const sig  = (await headers()).get('stripe-signature')!
+
+  let event: Stripe.Event
+  try {
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
+  } catch {
+    return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+  }
+  // ... handle event
+}
+```
+
+### QStash webhooks
+```typescript
+import { verifySignatureAppRouter } from '@upstash/qstash/nextjs'
+
+export const POST = verifySignatureAppRouter(async (req: NextRequest) => {
+  // verified — safe to process
+})
+```
