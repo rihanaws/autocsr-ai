@@ -6,6 +6,9 @@ Owner: TechSci, Inc. / Sayem Abdullah Rihan.
 Data agreement signed with OKBET (Gavin Ventures, Inc.) — June 2, 2026.
 Full plan: read `docs/MASTER_PLAN.md` before starting any new phase.
 
+**Repo:** https://github.com/rihanaws/autocsr-ai (private)
+**Default branch:** `main`
+
 ---
 
 ## Package Manager — CRITICAL
@@ -43,16 +46,21 @@ bunx <bin>           # not npx <bin>
 ```
 autocsr/
 ├── apps/
-│   ├── web/          ← Next.js 15 SaaS (primary)
-│   └── inference/    ← Python FastAPI + LangGraph
+│   ├── web/                    ← Next.js 15 SaaS (primary)
+│   └── inference/              ← Python FastAPI + LangGraph
 ├── packages/
-│   └── extension/    ← Chrome MV3 data collector
-├── pipeline/         ← Python ML training scripts
+│   └── extension/              ← Chrome MV3 data collector
+├── pipeline/                   ← Python ML training scripts
 ├── docs/
 │   └── MASTER_PLAN.md
-├── CLAUDE.md         ← this file
-├── package.json      ← Bun workspaces root
-└── .cursor/rules/    ← Cursor IDE rules
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              ← lint, typecheck, build (all apps)
+│       └── deploy.yml          ← Vercel (web) + Railway (inference)
+├── README.md
+├── CLAUDE.md                   ← this file
+├── package.json                ← Bun workspaces root
+└── .cursor/                    ← Cursor IDE rules
 ```
 
 ---
@@ -68,12 +76,23 @@ autocsr/
 ---
 
 ## Environment Variables
-Copy `.env.example` → `.env.local` and fill in:
-- `RESEND_API_KEY` — from resend.com/api-keys
-- `DATABASE_URL` — from Neon dashboard
+Copy `apps/web/.env.example` → `apps/web/.env.local` and fill in:
+- `DATABASE_URL` — from Neon dashboard (Neon: `ep-proud-sound-aoyz34le-pooler.c-2.ap-southeast-1.aws.neon.tech`)
+- `AUTH_SECRET` — run: `openssl rand -base64 32`
+- `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` — Google Cloud Console
 - `UPSTASH_REDIS_REST_URL` + `_TOKEN`
 - `UPSTASH_VECTOR_REST_URL` + `_TOKEN`
-- `AUTH_SECRET` — run: `openssl rand -base64 32`
+- `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` + `STRIPE_WEBHOOK_SECRET`
+- `RESEND_API_KEY` — from resend.com/api-keys
+- `INFERENCE_SERVICE_URL` — local: `http://localhost:8000` / prod: Railway URL
+
+⚠️ **DB push gotcha:** shell `DATABASE_URL` env var overrides `.env.local`.
+Always run: `unset DATABASE_URL && bun run db:push`
+
+## GitHub Actions Secrets Required
+Add these in repo Settings → Secrets → Actions:
+- `VERCEL_TOKEN` — for deploy.yml (Vercel deploy)
+- `RAILWAY_TOKEN` — for deploy.yml (Railway inference deploy)
 
 ---
 
@@ -116,13 +135,12 @@ After Week 2: update this section to Week 3.
 # Dev
 bun run dev                     # Next.js (turbopack)
 
-# DB
-bun run db:push                 # push Prisma schema to Neon
-bun run db:generate             # regenerate Prisma client
-bun run db:studio               # Prisma Studio GUI
+# DB — always unset shell env first!
+unset DATABASE_URL && bun run db:push       # push Prisma schema to Neon
+unset DATABASE_URL && bun run db:generate   # regenerate Prisma client
+bun run db:studio                           # Prisma Studio GUI
 
 # Shadcn
-bunx shadcn init                # first time setup
 bunx shadcn add button input card dialog table badge tabs
 
 # Extension
@@ -136,6 +154,9 @@ cd apps/inference
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
+
+# Git
+git add <files> && git commit -m "..." && git push
 ```
 
 ---
