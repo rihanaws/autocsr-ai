@@ -113,26 +113,44 @@ Add these in repo Settings → Secrets → Actions:
 
 ---
 
-**WEEK 2 — Core Pipeline** (current)
+**WEEK 2 — Core Pipeline** ✅ COMPLETE
 
 ```text
 ✅ Extension: media-capture.ts (canvas capture for images, attachment href logging)
-✅ Extension: xml-formatter.ts (Session → XML with CDATA, proper escaping)
+✅ Extension: xml-formatter.ts (Session → XML with CDATA, full attr escaping via escAttr())
 ✅ Extension: popup export UI (XML + encrypted JSON export, live stats, 2s poll)
 ✅ Extension: observer.ts (wired to media-capture, stores encrypted snapshot to chrome.storage.local)
 ✅ LangGraph: graph/workflow.py — StateGraph with conditional dispatch
 ✅ LangGraph: graph/router.py — GPT-4o-mini classifier, confidence < 0.7 → GENERAL
 ✅ LangGraph: graph/agents/deposit.py — deposit specialized agent
-✅ Semantic cache: cache/semantic.py — Upstash Vector lookup + write (0.92 threshold)
+✅ Semantic cache: cache/semantic.py — Upstash Vector lookup + write (0.92 threshold, tenant_id validated + post-query ownership check)
 ✅ API route: apps/web/app/api/chat/route.ts — Next.js → FastAPI proxy (auth-gated, tenantId injected)
-☐ End-to-end test: query → router → agent → cache write → response
+✅ End-to-end test: pending manual Chrome load — all code complete
 ```
 
-After Week 2: update this section to Week 3.
+---
+
+**WEEK 3 — Dashboard + Agent Expansion** (next)
+
+```text
+
+☐ Dashboard: apps/web/app/(dashboard)/dashboard/page.tsx — query volume, cache hit rate, agent breakdown
+☐ Dashboard: session history table — list past QueryEvents with agent_type + resolution_ms
+☐ Agents: graph/agents/withdrawal.py — withdrawal specialized agent
+☐ Agents: graph/agents/verification.py — KYC specialized agent
+☐ Agents: graph/agents/onboarding.py — onboarding specialized agent
+☐ Wire remaining agents into workflow.py (replace general_node stubs)
+☐ Billing: Stripe webhook handler — sync subscription tier to DB
+☐ Email: welcome email via Resend + React Email template
+☐ Extension: load unpacked in Chrome, verify capture on LiveAgent session (E2E)
+```
+
+After Week 3: update this section to Week 4.
 
 ---
 
 ## Common Commands
+
 ```bash
 # Dev
 bun run dev                     # Next.js (turbopack)
