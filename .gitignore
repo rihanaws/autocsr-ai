@@ -54,3 +54,4 @@ yarn-debug.log*
 
 # Vercel
 .vercel/
+apps/web/tsconfig.tsbuildinfo

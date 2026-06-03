@@ -13,7 +13,8 @@ Full plan: read `docs/MASTER_PLAN.md` before starting any new phase.
 
 ## Package Manager — CRITICAL
 **Always `bun`. Never `npm`, `yarn`, or `pnpm`.**
-```
+
+```bash
 bun install          # not npm install
 bun add <pkg>        # not npm install <pkg>
 bun run <script>     # not npm run <script>
@@ -99,7 +100,7 @@ Add these in repo Settings → Secrets → Actions:
 ## Current Build Phase
 **WEEK 1 — Foundation** ✅ COMPLETE
 
-```
+```text
 ✅ Bun monorepo init + workspace config (apps/*, packages/*)
 ✅ apps/web — Next.js 15 App Router scaffold (TypeScript strict, no src/)
 ✅ Tailwind v4 + Shadcn/ui init (CSS-first, @theme tokens, dark surfaces)
@@ -114,7 +115,7 @@ Add these in repo Settings → Secrets → Actions:
 
 **WEEK 2 — Core Pipeline** (current)
 
-```
+```text
 ☐ Extension: media-capture.ts (canvas capture for images)
 ☐ Extension: xml-formatter.ts (Session → XML with CDATA)
 ☐ Extension: popup export UI (wire to xml-formatter)
@@ -162,8 +163,9 @@ git add <files> && git commit -m "..." && git push
 ---
 
 ## Agents & Domains
+
 | Agent | Domain | LoRA |
-|-------|--------|------|
+| --- | --- | --- |
 | Deposit | failed deposits, pending payments, balance credits | LoRA-01 |
 | Withdrawal | withdrawal requests, limits, pending | LoRA-02 |
 | Verification | KYC, identity docs, account verification | LoRA-03 |
@@ -175,8 +177,9 @@ Router: GPT-4o-mini classifier → confidence < 0.7 always routes to General.
 ---
 
 ## Pricing Tiers
+
 | Tier | Queries/month | Price |
-|------|--------------|-------|
+| --- | --- | --- |
 | Free | 500 | $0 |
 | Starter | 10,000 | $149 |
 | Growth | 50,000 | $499 |
