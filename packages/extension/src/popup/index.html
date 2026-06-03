@@ -10,16 +10,20 @@
       button { width: 100%; padding: 8px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; margin-bottom: 8px; }
       #start { background: #4f46e5; color: #fff; }
       #stop { background: #1e1e2a; color: #a5b4fc; border: 1px solid #2a2a3a; }
-      #export { background: #16161f; color: #6ee7b7; border: 1px solid #2a2a3a; }
-      #status { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 8px; }
+      #export-xml { background: #16161f; color: #6ee7b7; border: 1px solid #2a2a3a; }
+      #export-enc { background: #16161f; color: #f9a8d4; border: 1px solid #2a2a3a; }
+      #status { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+      #stats { font-size: 11px; color: rgba(255,255,255,0.25); margin-top: 2px; }
     </style>
   </head>
   <body>
     <h1>AutoCSR Collector</h1>
     <button id="start">Start Session</button>
     <button id="stop">Stop Session</button>
-    <button id="export">Export (Encrypted)</button>
+    <button id="export-xml">Export XML</button>
+    <button id="export-enc">Export Encrypted JSON</button>
     <div id="status">Status: idle</div>
+    <div id="stats"></div>
     <script type="module" src="./popup.ts"></script>
   </body>
 </html>

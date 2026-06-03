@@ -116,14 +116,15 @@ Add these in repo Settings → Secrets → Actions:
 **WEEK 2 — Core Pipeline** (current)
 
 ```text
-☐ Extension: media-capture.ts (canvas capture for images)
-☐ Extension: xml-formatter.ts (Session → XML with CDATA)
-☐ Extension: popup export UI (wire to xml-formatter)
-☐ LangGraph: graph/workflow.py — StateGraph skeleton
-☐ LangGraph: graph/router.py — GPT-4o-mini classifier
-☐ LangGraph: graph/agents/deposit.py — first specialized agent
-☐ Semantic cache: cache/semantic.py — Upstash Vector lookup + write
-☐ API route: apps/web/app/api/chat/route.ts — Next.js → FastAPI proxy
+✅ Extension: media-capture.ts (canvas capture for images, attachment href logging)
+✅ Extension: xml-formatter.ts (Session → XML with CDATA, proper escaping)
+✅ Extension: popup export UI (XML + encrypted JSON export, live stats, 2s poll)
+✅ Extension: observer.ts (wired to media-capture, stores encrypted snapshot to chrome.storage.local)
+✅ LangGraph: graph/workflow.py — StateGraph with conditional dispatch
+✅ LangGraph: graph/router.py — GPT-4o-mini classifier, confidence < 0.7 → GENERAL
+✅ LangGraph: graph/agents/deposit.py — deposit specialized agent
+✅ Semantic cache: cache/semantic.py — Upstash Vector lookup + write (0.92 threshold)
+✅ API route: apps/web/app/api/chat/route.ts — Next.js → FastAPI proxy (auth-gated, tenantId injected)
 ☐ End-to-end test: query → router → agent → cache write → response
 ```
 

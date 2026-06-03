@@ -3,7 +3,7 @@
   "name": "AutoCSR Data Collector",
   "version": "0.1.0",
   "description": "Collects anonymized CSR session data for AutoCSR AI training (authorized use only)",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "permissions": ["storage", "activeTab", "scripting", "downloads"],
   "host_permissions": ["https://*.liveagent.com/*"],
   "background": {
     "service_worker": "src/background/service-worker.ts",
