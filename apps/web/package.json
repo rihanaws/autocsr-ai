@@ -23,7 +23,7 @@
     "@upstash/qstash": "^2.7.20",
     "@upstash/redis": "^1.34.3",
     "@upstash/vector": "^1.1.6",
-    "ai": "^4.1.36",
+    "ai": "^5.0.52",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",
