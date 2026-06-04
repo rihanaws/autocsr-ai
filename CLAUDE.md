@@ -131,7 +131,7 @@ Add these in repo Settings → Secrets → Actions:
 
 ---
 
-**WEEK 3 — Dashboard + Agent Expansion** ✅ PARTIAL (in progress)
+**WEEK 3 — Dashboard + Agent Expansion** ✅ COMPLETE
 
 ```text
 ✅ db:push/generate/studio/migrate — dotenv-cli wraps all prisma commands (loads .env.local)
@@ -145,13 +145,32 @@ Add these in repo Settings → Secrets → Actions:
 ✅ Auditor: auditor/judge.py — Claude Haiku async judge, 5% sample, asyncpg writes ReviewItem to Neon
 ✅ main.py v0.3.0 — full pipeline: input_guard → cache → workflow → output_guard → auditor
 ✅ Billing: app/api/webhooks/polar/route.ts — Polar webhook (subscription tier sync, NOT Stripe)
-☐ Dashboard: apps/web/app/(dashboard)/dashboard/page.tsx — query volume, cache hit rate, agent breakdown
-☐ Dashboard: session history table — list past QueryEvents with agent_type + resolution_ms
-☐ Email: welcome email via Resend + React Email template
-☐ Extension: load unpacked in Chrome, verify capture on LiveAgent session (E2E)
+✅ Landing page: app/(marketing)/page.tsx — full 6-section marketing page (hero, problem, how-it-works, metrics, pricing, CTA)
+✅ Landing: components/marketing/* — HeroSection (live counter), ProblemSection, HowItWorksSection (SVG flow), MetricsSection, PricingSection (annual toggle), CTASection
+✅ Dashboard layout: app/(dashboard)/layout.tsx — auth-gated, sidebar with agent health dots + review badge count
+✅ Dashboard overview: app/(dashboard)/dashboard/page.tsx — 4 KPI cards (live DB), 7d area chart (Recharts), live feed (SWR 3s poll)
+✅ Dashboard agents: app/(dashboard)/agents/page.tsx — 30d stats table, SVG sparklines per agent
+✅ Review queue: app/(dashboard)/review-queue/page.tsx + actions.ts — approve/correct/reject Server Actions
+✅ Training page: app/(dashboard)/training/page.tsx — run history, accuracy trend chart, next-run countdown
+✅ API: app/api/dashboard/feed/route.ts — auth-gated live feed endpoint
+✅ postcss.config.mjs + @tailwindcss/postcss — Tailwind v4 PostCSS wired for Turbopack
+☐ Email: welcome email via Resend + React Email template (moved to Week 4)
+☐ Extension: load unpacked in Chrome, verify capture on LiveAgent session (E2E) (moved to Week 4)
 ```
 
-After Week 3 complete: update this section to Week 4.
+---
+
+**WEEK 4 — Training Pipeline + Email + E2E**
+
+```text
+☐ Email: welcome email via Resend + React Email template
+☐ Extension: load unpacked in Chrome, verify capture on LiveAgent session (E2E)
+☐ Training pipeline: Unsloth QLoRA fine-tune script (pipeline/)
+☐ Weekly scheduler: QStash cron → trigger training run
+☐ Knowledge base page: app/(dashboard)/knowledge/page.tsx — chunk list, upload, delete
+☐ Settings page: app/(dashboard)/settings/page.tsx — API key, tier display, danger zone
+☐ Cache page: app/(dashboard)/cache/page.tsx — vector cache stats, manual invalidation
+```
 
 ---
 

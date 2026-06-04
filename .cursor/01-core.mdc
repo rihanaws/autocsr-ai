@@ -6,6 +6,7 @@ alwaysApply: true
 # AutoCSR — Core Project Rules
 
 ## Identity
+
 This is **AutoCSR** — an AI-native CSR automation SaaS for online betting platforms.
 Owner: TechSci, Inc. / Sayem Abdullah Rihan.
 Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash · Python FastAPI · LangGraph · Hermes-3.
@@ -15,13 +16,16 @@ Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash ·
 ## Non-Negotiable Rules (Never Violate)
 
 ### Package Manager
+
 - **Always use `bun`**, never `npm`, `yarn`, or `pnpm`
 - Install: `bun add <pkg>` / `bun add -d <pkg>`
 - Run scripts: `bun run <script>`
 - Execute binaries: `bunx <binary>`
 - Never write `npm install`, `npm run`, `npx` anywhere
+- NEVER run `prisma db push` directly. Always use `bun run db:push` which loads .env.local via dotenv-cli.
 
 ### TypeScript
+
 - **Strict mode always** — `"strict": true` in tsconfig, no exceptions
 - No `any` — use `unknown` + type guards if genuinely needed
 - No `as` casting unless you comment WHY it's safe
@@ -30,12 +34,14 @@ Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash ·
 - Use `satisfies` operator for config objects
 
 ### File & Folder Structure
+
 - **No `src/` folder** — all code at root level under `app/`, `components/`, `lib/`, etc.
 - Next.js App Router only — never Pages Router
 - Route groups: `(marketing)`, `(auth)`, `(dashboard)` — use parentheses for layout grouping
 - Co-locate component tests next to components: `button.test.tsx` beside `button.tsx`
 
 ### Imports
+
 - Use `@/` path alias for all internal imports — never relative `../../`
 - External imports first, then `@/` imports, then relative (only within same directory)
 - No barrel files (`index.ts` re-exports) — they break tree shaking
@@ -45,12 +51,14 @@ Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash ·
 ## Next.js 15 Conventions
 
 ### Server vs Client Components
+
 - **Default: Server Component** — no `'use client'` unless you need it
 - Add `'use client'` ONLY for: `useState`, `useEffect`, `useRef`, event handlers, browser APIs, Motion animations
 - Keep client boundaries as deep in the tree as possible — never at page level if avoidable
 - `'use server'` goes in Server Actions files only, not in components
 
 ### Server Actions
+
 - All mutations go through Server Actions — never raw `fetch` POST from client
 - Server Actions live in `app/actions/` directory
 - Always return a typed state union: `{ status: 'success' | 'error' | 'idle'; ... }`
@@ -58,12 +66,14 @@ Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash ·
 - Validate with Zod inside every Server Action before touching DB or external APIs
 
 ### Data Fetching
+
 - Fetch in Server Components — pass data down as props
 - Use `cache()` from React for request deduplication where needed
 - Never `useEffect` + `fetch` for initial data — always server-side
 - Parallel fetching: `Promise.all([...])` in server components, not sequential awaits
 
 ### Route Handlers (API Routes)
+
 - Live in `app/api/[route]/route.ts`
 - Export named functions: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`
 - Always validate input — use Zod
@@ -83,6 +93,7 @@ Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash ·
 - Class order: layout → spacing → sizing → typography → color → state variants
 
 ### Theme variables (reference)
+
 ```css
 @theme {
   --color-brand-500: #4f46e5;
@@ -106,6 +117,7 @@ Stack: Bun · Next.js 15 · TypeScript strict · Neon (PostgreSQL) · Upstash ·
 - Index every foreign key used in WHERE clauses
 
 ### lib/db.ts pattern (singleton)
+
 ```typescript
 import { PrismaClient } from '@prisma/client'
 import { PrismaNeon } from '@prisma/adapter-neon'

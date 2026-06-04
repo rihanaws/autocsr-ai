@@ -1,0 +1,190 @@
+
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#090910;--sf:#0f0f18;--sf2:#141420;--sf3:#1a1a28;
+  --bd:rgba(255,255,255,0.06);--bds:rgba(255,255,255,0.12);
+  --tx:#e8e8f0;--txm:#606075;--txd:#30303f;
+  --ac:#4f46e5;--acg:rgba(79,70,229,0.12);--acb:rgba(79,70,229,0.25);
+  --gn:#22c55e;--am:#f59e0b;--rd:#ef4444;
+  --fdis:'Syne',sans-serif;--fbod:'DM Sans',sans-serif;--fmon:'JetBrains Mono',monospace
+}
+.root{background:var(--bg);display:grid;grid-template-columns:190px 1fr;min-height:560px;font-family:var(--fbod);color:var(--tx);font-size:12.5px;border-radius:12px;overflow:hidden}
+.sb{background:var(--sf);border-right:1px solid var(--bd);display:flex;flex-direction:column;padding:16px 0}
+.sb-logo{padding:0 14px 14px;border-bottom:1px solid var(--bd);margin-bottom:12px}
+.sb-logotext{font-family:var(--fdis);font-size:14px;font-weight:700;letter-spacing:-0.02em}
+.sb-badge{font-family:var(--fmon);font-size:8px;background:var(--acg);border:1px solid var(--acb);color:#a5a0ff;padding:1px 4px;border-radius:3px;margin-left:5px}
+.sb-tenant{font-family:var(--fmon);font-size:9px;color:var(--txm);margin-top:3px;letter-spacing:0.05em}
+.sb-lbl{font-size:9px;letter-spacing:0.1em;color:var(--txd);padding:0 8px 5px 14px;text-transform:uppercase}
+.sb-sec{padding:0 6px;margin-bottom:2px}
+.ni{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:5px;cursor:pointer;color:var(--txm);font-size:12px;transition:background 0.12s}
+.ni:hover{background:rgba(255,255,255,0.03);color:var(--tx)}
+.ni.active{background:var(--acg);color:#a5a0ff;border:1px solid var(--acb)}
+.ni i{font-size:14px}
+.ni-badge{margin-left:auto;background:rgba(239,68,68,0.12);color:#f87171;font-size:8px;font-family:var(--fmon);padding:1px 4px;border-radius:8px;border:1px solid rgba(239,68,68,0.2)}
+.sb-agents{margin-top:auto;padding:12px 14px;border-top:1px solid var(--bd)}
+.sb-agtitle{font-size:9px;letter-spacing:0.1em;color:var(--txd);text-transform:uppercase;margin-bottom:8px}
+.ag-row{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:11px;color:var(--txm)}
+.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.dot-g{background:var(--gn);box-shadow:0 0 5px rgba(34,197,94,0.45)}
+.dot-a{background:var(--am)}
+.ag-name{flex:1;font-family:var(--fmon);font-size:9.5px}
+.ag-qpm{font-family:var(--fmon);font-size:9px;color:var(--txd)}
+.main{display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--bd);background:var(--sf)}
+.topbar-title{font-family:var(--fdis);font-size:13px;font-weight:700;letter-spacing:-0.01em}
+.live-pill{display:flex;align-items:center;gap:5px;font-family:var(--fmon);font-size:9px;color:var(--gn);background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);padding:2px 8px;border-radius:100px}
+.lpulse{width:5px;height:5px;border-radius:50%;background:var(--gn);animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--bd);border-bottom:1px solid var(--bd)}
+.kpi{background:var(--sf);padding:14px 16px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--ac),transparent);opacity:0;transition:opacity 0.3s}
+.kpi:hover::after{opacity:0.5}
+.kpi-lbl{font-size:9.5px;color:var(--txm);letter-spacing:0.03em;margin-bottom:5px}
+.kpi-val{font-family:var(--fmon);font-size:20px;font-weight:600;letter-spacing:-0.04em;color:var(--tx);line-height:1}
+.kpi-dl{font-size:9px;color:var(--gn);margin-top:4px;font-family:var(--fmon)}
+.kpi-dl.accent{color:var(--ac)}
+.content{display:grid;grid-template-columns:1fr 250px;flex:1;overflow:hidden}
+.chart-pane{padding:14px 18px;border-right:1px solid var(--bd)}
+.pane-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pane-ttl{font-size:10px;font-weight:500;letter-spacing:0.05em;color:var(--txm);text-transform:uppercase}
+.legend{display:flex;gap:10px}
+.leg-i{display:flex;align-items:center;gap:4px;font-size:9.5px;color:var(--txm);font-family:var(--fmon)}
+.leg-dot{width:6px;height:6px;border-radius:1px}
+.feed-pane{padding:14px;display:flex;flex-direction:column;overflow:hidden}
+.feed{flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden}
+.fi{padding:7px 0;border-bottom:1px solid var(--bd);animation:fin 0.25s ease}
+@keyframes fin{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:translateY(0)}}
+.fi-meta{display:flex;align-items:center;gap:5px;margin-bottom:2px}
+.tag{font-family:var(--fmon);font-size:8px;padding:1px 4px;border-radius:2px;text-transform:uppercase;letter-spacing:0.05em}
+.tag-dep{background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.18)}
+.tag-wit{background:rgba(245,158,11,0.1);color:#fbbf24;border:1px solid rgba(245,158,11,0.18)}
+.tag-ver{background:rgba(168,85,247,0.1);color:#c084fc;border:1px solid rgba(168,85,247,0.18)}
+.tag-onb{background:rgba(59,130,246,0.1);color:#60a5fa;border:1px solid rgba(59,130,246,0.18)}
+.tag-gen{background:rgba(100,100,120,0.15);color:#9ca3af;border:1px solid rgba(100,100,120,0.2)}
+.tag-cache{font-size:7.5px;color:var(--gn);font-family:var(--fmon);background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.15);padding:1px 4px;border-radius:2px}
+.fi-time{font-family:var(--fmon);font-size:8.5px;color:var(--txd);margin-left:auto}
+.fi-text{font-size:10.5px;color:var(--txm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi-ms{font-family:var(--fmon);font-size:8.5px;color:var(--txd);margin-top:1px}
+</style>
+
+<div class="root">
+  <div class="sb">
+    <div class="sb-logo">
+      <div><span class="sb-logotext">AutoCSR</span><span class="sb-badge">BETA</span></div>
+      <div class="sb-tenant">OKBET · Growth</div>
+    </div>
+    <div class="sb-sec">
+      <div class="sb-lbl">Platform</div>
+      <div class="ni active"><i class="ti ti-layout-dashboard" aria-hidden="true"></i>Overview</div>
+      <div class="ni"><i class="ti ti-robot" aria-hidden="true"></i>Agents</div>
+      <div class="ni"><i class="ti ti-database" aria-hidden="true"></i>Cache</div>
+      <div class="ni"><i class="ti ti-flag" aria-hidden="true"></i>Review Queue<span class="ni-badge">4</span></div>
+      <div class="ni"><i class="ti ti-brain" aria-hidden="true"></i>Training</div>
+    </div>
+    <div class="sb-sec" style="margin-top:8px">
+      <div class="sb-lbl">Config</div>
+      <div class="ni"><i class="ti ti-book-2" aria-hidden="true"></i>Knowledge</div>
+      <div class="ni"><i class="ti ti-settings" aria-hidden="true"></i>Settings</div>
+    </div>
+    <div class="sb-agents">
+      <div class="sb-agtitle">Agent Health</div>
+      <div class="ag-row"><div class="dot dot-g"></div><span class="ag-name">deposit</span><span class="ag-qpm" id="qd">24/m</span></div>
+      <div class="ag-row"><div class="dot dot-g"></div><span class="ag-name">withdrawal</span><span class="ag-qpm">18/m</span></div>
+      <div class="ag-row"><div class="dot dot-g"></div><span class="ag-name">verification</span><span class="ag-qpm">7/m</span></div>
+      <div class="ag-row"><div class="dot dot-g"></div><span class="ag-name">onboarding</span><span class="ag-qpm">12/m</span></div>
+      <div class="ag-row"><div class="dot dot-a"></div><span class="ag-name">general</span><span class="ag-qpm">3/m</span></div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Overview</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-family:var(--fmon);font-size:9px;color:var(--txd)">Jun 04 2026</span>
+        <div class="live-pill"><div class="lpulse"></div>LIVE</div>
+      </div>
+    </div>
+    <div class="kpi-strip">
+      <div class="kpi"><div class="kpi-lbl">Queries Today</div><div class="kpi-val" id="k1">0</div><div class="kpi-dl">↑ 12% vs yesterday</div></div>
+      <div class="kpi"><div class="kpi-lbl">Resolution Rate</div><div class="kpi-val" id="k2">0%</div><div class="kpi-dl">↑ 1.4pp this week</div></div>
+      <div class="kpi"><div class="kpi-lbl">Cache Hit Rate</div><div class="kpi-val" id="k3">0%</div><div class="kpi-dl accent">↑ still growing</div></div>
+      <div class="kpi"><div class="kpi-lbl">Cost Saved Today</div><div class="kpi-val" id="k4">$0</div><div class="kpi-dl">vs full-LLM baseline</div></div>
+    </div>
+    <div class="content">
+      <div class="chart-pane">
+        <div class="pane-hdr">
+          <span class="pane-ttl">Query Volume — 7d</span>
+          <div class="legend">
+            <div class="leg-i"><div class="leg-dot" style="background:#22c55e"></div>deposit</div>
+            <div class="leg-i"><div class="leg-dot" style="background:#f59e0b"></div>withdrawal</div>
+            <div class="leg-i"><div class="leg-dot" style="background:#c084fc"></div>verify</div>
+            <div class="leg-i"><div class="leg-dot" style="background:#60a5fa"></div>onboard</div>
+          </div>
+        </div>
+        <svg width="100%" viewBox="0 0 420 140" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#22c55e" stop-opacity=".28"/><stop offset="100%" stop-color="#22c55e" stop-opacity="0"/></linearGradient>
+            <linearGradient id="gw" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b" stop-opacity=".2"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/></linearGradient>
+          </defs>
+          <line x1="0" y1="35" x2="420" y2="35" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
+          <line x1="0" y1="70" x2="420" y2="70" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
+          <line x1="0" y1="105" x2="420" y2="105" stroke="rgba(255,255,255,0.04)" stroke-width="0.5"/>
+          <text x="0" y="38" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(255,255,255,0.18)">800</text>
+          <text x="0" y="73" font-family="JetBrains Mono,monospace" font-size="8" fill="rgba(255,255,255,0.18)">400</text>
+          <path d="M24,108 L84,82 L144,72 L204,60 L264,55 L324,46 L384,40 L384,128 L24,128Z" fill="url(#gd)"/>
+          <path d="M24,108 L84,82 L144,72 L204,60 L264,55 L324,46 L384,40" fill="none" stroke="#22c55e" stroke-width="1.5"/>
+          <path d="M24,120 L84,104 L144,96 L204,90 L264,82 L324,76 L384,66 L384,128 L24,128Z" fill="url(#gw)"/>
+          <path d="M24,120 L84,104 L144,96 L204,90 L264,82 L324,76 L384,66" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 2"/>
+          <path d="M24,128 L84,124 L144,122 L204,120 L264,116 L324,112 L384,106" fill="none" stroke="#c084fc" stroke-width="1" opacity=".5"/>
+          <path d="M24,130 L84,126 L144,124 L204,122 L264,118 L324,115 L384,110" fill="none" stroke="#60a5fa" stroke-width="0.8" opacity=".4"/>
+          <text x="24" y="138" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.18)">May 29</text>
+          <text x="144" y="138" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.18)">Jun 01</text>
+          <text x="264" y="138" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7.5" fill="rgba(255,255,255,0.18)">Jun 03</text>
+          <text x="384" y="138" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="7.5" fill="#4f46e5">Today</text>
+          <line x1="384" y1="0" x2="384" y2="128" stroke="rgba(79,70,229,0.3)" stroke-width="0.8" stroke-dasharray="3 3"/>
+        </svg>
+      </div>
+      <div class="feed-pane">
+        <div class="pane-hdr">
+          <span class="pane-ttl">Live Feed</span>
+          <span style="font-family:var(--fmon);font-size:9px;color:var(--txd)" id="fpm">—/min</span>
+        </div>
+        <div class="feed" id="feed"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const AGS=['deposit','withdrawal','verification','onboarding','general'];
+const QS=['Deposit ৳500 not reflecting','Withdrawal pending 48h','KYC doc review status','Welcome bonus not credited','GCash payment missing','BKash deposit failed','Account unlock request','Withdrawal limit query','Registration help','Verify ID docs'];
+const TC={deposit:'tag-dep',withdrawal:'tag-wit',verification:'tag-ver',onboarding:'tag-onb',general:'tag-gen'};
+function rnd(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function fmt(n){return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,',')}
+function addItem(){
+  const a=AGS[Math.floor(Math.random()*AGS.length)];
+  const q=QS[Math.floor(Math.random()*QS.length)];
+  const ms=rnd(260,3700);const hit=Math.random()<0.66;
+  const d=new Date();const t=d.toTimeString().slice(0,8);
+  const f=document.getElementById('feed');
+  const el=document.createElement('div');el.className='fi';
+  el.innerHTML=`<div class="fi-meta"><span class="tag ${TC[a]}">${a}</span>${hit?'<span class="tag-cache">CACHED</span>':''}<span class="fi-time">${t}</span></div><div class="fi-text">${q}</div><div class="fi-ms">${hit?'cache · ':'llm · '}${ms}ms</div>`;
+  f.insertBefore(el,f.firstChild);
+  while(f.children.length>7)f.removeChild(f.lastChild);
+}
+function counter(id,target,fmt2){
+  const el=document.getElementById(id);let c=0;const inc=target/35;
+  const t=setInterval(()=>{c=Math.min(c+inc,target);el.textContent=fmt2(c);if(c>=target)clearInterval(t)},25);
+}
+setTimeout(()=>{
+  counter('k1',4821,v=>fmt(Math.round(v)));
+  counter('k2',94.2,v=>v.toFixed(1)+'%');
+  counter('k3',68.7,v=>v.toFixed(1)+'%');
+  counter('k4',2.41,v=>'$'+v.toFixed(2));
+  document.getElementById('fpm').textContent='64/min';
+},300);
+for(let i=0;i<6;i++)addItem();
+setInterval(addItem,2000);
+</script>

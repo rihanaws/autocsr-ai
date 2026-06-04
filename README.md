@@ -267,10 +267,9 @@ Copy `apps/web/.env.example` to `apps/web/.env.local`. Required vars:
 
 - [x] **Week 1** — Monorepo, Next.js 15, Tailwind v4, Prisma + Neon, Auth, Extension scaffold, FastAPI skeleton
 - [x] **Week 2** — LangGraph pipeline, semantic cache, /api/chat proxy, extension export
-- [~] **Week 3** — All 5 agents ✅, input/output guards ✅, async auditor ✅, Polar billing ✅, dashboard (in progress)
-- [ ] **Week 4** — Training pipeline (Unsloth QLoRA), weekly scheduler
-- [ ] **Weeks 5–6** — Landing page, dashboard, review queue UI, Polar billing UI
-- [ ] **Week 7** — OKBET pilot prep, Thompson pitch
+- [x] **Week 3** — All 5 agents, guards, async auditor, Polar billing, full landing page, full tenant dashboard (overview + agents + review queue + training)
+- [ ] **Week 4** — Email (Resend), E2E Chrome extension test, training pipeline (Unsloth QLoRA), scheduler, knowledge/cache/settings pages
+- [ ] **Week 5** — OKBET pilot prep, Thompson pitch
 
 ---
 

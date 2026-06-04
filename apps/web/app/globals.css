@@ -1,6 +1,5 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "../node_modules/tw-animate-css/dist/tw-animate.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -42,6 +41,23 @@
   /* Shadows */
   --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.15);
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+
+  /* Design system exact tokens */
+  --color-base:         #090910;
+  --color-sf:           #0f0f18;
+  --color-sf2:          #141420;
+  --color-sf3:          #1a1a28;
+  --color-bd:           rgba(255,255,255,0.06);
+  --color-bds:          rgba(255,255,255,0.12);
+  --color-tx:           #e8e8f0;
+  --color-txm:          #606075;
+  --color-txd:          #30303f;
+  --color-ac:           #4f46e5;
+  --color-acg:          rgba(79,70,229,0.12);
+  --color-acb:          rgba(79,70,229,0.25);
+  --color-online:       #22c55e;
+  --color-warn:         #f59e0b;
+  --color-error:        #ef4444;
 }
 
 *, *::before, *::after {
