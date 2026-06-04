@@ -28,5 +28,5 @@ httpx==0.28.1
 asyncpg==0.30.0
 
 # Utilities
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 lxml==6.1.0
