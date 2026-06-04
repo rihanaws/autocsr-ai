@@ -24,6 +24,9 @@ numpy==2.2.1
 # HTTP
 httpx==0.28.1
 
+# Database (direct writes from Python — no Prisma)
+asyncpg==0.30.0
+
 # Utilities
 python-dotenv==1.0.1
 lxml==6.1.0

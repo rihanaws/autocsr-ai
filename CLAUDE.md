@@ -35,7 +35,7 @@ bunx <bin>           # not npx <bin>
 | Cache | Upstash Redis + Upstash Vector |
 | Queue | Upstash QStash |
 | Auth | NextAuth.js v5 |
-| Billing | Stripe |
+| Billing | Polar |
 | Email | Resend + React Email |
 | AI SDK | Vercel AI SDK v4 |
 | Inference | FastAPI (Python 3.11) + LangGraph |
@@ -83,12 +83,13 @@ Copy `apps/web/.env.example` → `apps/web/.env.local` and fill in:
 - `AUTH_GOOGLE_ID` + `AUTH_GOOGLE_SECRET` — Google Cloud Console
 - `UPSTASH_REDIS_REST_URL` + `_TOKEN`
 - `UPSTASH_VECTOR_REST_URL` + `_TOKEN`
-- `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY` + `STRIPE_WEBHOOK_SECRET`
+- `POLAR_ACCESS_TOKEN` + `POLAR_WEBHOOK_SECRET` + `POLAR_PRODUCT_ID_STARTER` + `POLAR_PRODUCT_ID_GROWTH` + `POLAR_PRODUCT_ID_ENTERPRISE`
 - `RESEND_API_KEY` — from resend.com/api-keys
 - `INFERENCE_SERVICE_URL` — local: `http://localhost:8000` / prod: Railway URL
 
 ⚠️ **DB push gotcha:** shell `DATABASE_URL` env var overrides `.env.local`.
-Always run: `unset DATABASE_URL && bun run db:push`
+DB scripts now use `dotenv-cli` — always run via `bun run db:*` (never call prisma directly).
+Legacy fallback: `unset DATABASE_URL && bun run db:push`
 
 ## GitHub Actions Secrets Required
 Add these in repo Settings → Secrets → Actions:
@@ -130,22 +131,27 @@ Add these in repo Settings → Secrets → Actions:
 
 ---
 
-**WEEK 3 — Dashboard + Agent Expansion** (next)
+**WEEK 3 — Dashboard + Agent Expansion** ✅ PARTIAL (in progress)
 
 ```text
-
+✅ db:push/generate/studio/migrate — dotenv-cli wraps all prisma commands (loads .env.local)
+✅ Agents: graph/agents/withdrawal.py — withdrawal specialized agent
+✅ Agents: graph/agents/verification.py — KYC specialized agent
+✅ Agents: graph/agents/onboarding.py — onboarding specialized agent
+✅ Agents: graph/agents/general.py — catch-all agent
+✅ Wire all 5 agents into workflow.py (stubs replaced)
+✅ Guards: graph/guards/input_guard.py — scope filter + PII redaction
+✅ Guards: graph/guards/output_guard.py — hallucination risk + PII leak scan + confidence scoring
+✅ Auditor: auditor/judge.py — Claude Haiku async judge, 5% sample, asyncpg writes ReviewItem to Neon
+✅ main.py v0.3.0 — full pipeline: input_guard → cache → workflow → output_guard → auditor
+✅ Billing: app/api/webhooks/polar/route.ts — Polar webhook (subscription tier sync, NOT Stripe)
 ☐ Dashboard: apps/web/app/(dashboard)/dashboard/page.tsx — query volume, cache hit rate, agent breakdown
 ☐ Dashboard: session history table — list past QueryEvents with agent_type + resolution_ms
-☐ Agents: graph/agents/withdrawal.py — withdrawal specialized agent
-☐ Agents: graph/agents/verification.py — KYC specialized agent
-☐ Agents: graph/agents/onboarding.py — onboarding specialized agent
-☐ Wire remaining agents into workflow.py (replace general_node stubs)
-☐ Billing: Stripe webhook handler — sync subscription tier to DB
 ☐ Email: welcome email via Resend + React Email template
 ☐ Extension: load unpacked in Chrome, verify capture on LiveAgent session (E2E)
 ```
 
-After Week 3: update this section to Week 4.
+After Week 3 complete: update this section to Week 4.
 
 ---
 
@@ -155,9 +161,10 @@ After Week 3: update this section to Week 4.
 # Dev
 bun run dev                     # Next.js (turbopack)
 
-# DB — always unset shell env first!
-unset DATABASE_URL && bun run db:push       # push Prisma schema to Neon
-unset DATABASE_URL && bun run db:generate   # regenerate Prisma client
+# DB — scripts use dotenv-cli, loads .env.local automatically
+bun run db:push                             # push Prisma schema to Neon
+bun run db:generate                         # regenerate Prisma client
+bun run db:migrate                          # create + apply migration
 bun run db:studio                           # Prisma Studio GUI
 
 # Shadcn

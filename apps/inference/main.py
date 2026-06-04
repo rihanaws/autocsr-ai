@@ -1,14 +1,18 @@
+import os
 import time
-from fastapi import FastAPI, HTTPException, Header
+from typing import Optional
+
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
-import os
 
+from auditor.judge import schedule_audit
 from cache.semantic import lookup, write
+from graph.guards.input_guard import check_input
+from graph.guards.output_guard import check_output
 from graph.workflow import workflow
 
-app = FastAPI(title="AutoCSR Inference", version="0.2.0")
+app = FastAPI(title="AutoCSR Inference", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,7 +47,7 @@ class InferResponse(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
 @app.post("/api/infer", response_model=InferResponse)
@@ -54,8 +58,22 @@ async def infer(
     verify_secret(x_api_secret)
     started = time.monotonic()
 
-    # Semantic cache lookup
-    cached = lookup(body.query, body.tenant_id)
+    # Input guard: scope filter + PII redaction
+    guard_result = check_input(body.query, body.tenant_id)
+    if not guard_result["passed"]:
+        return InferResponse(
+            response=guard_result["response"],
+            agent_type="GENERAL",
+            cache_hit=False,
+            confidence=1.0,
+            resolution_ms=int((time.monotonic() - started) * 1000),
+            flagged=False,
+        )
+
+    clean_query = guard_result["query"]
+
+    # Semantic cache lookup (use redacted query for cache key consistency)
+    cached = lookup(clean_query, body.tenant_id)
     if cached:
         return InferResponse(
             response=cached["response"],
@@ -69,7 +87,7 @@ async def infer(
     # Run LangGraph workflow
     result = workflow.invoke(
         {
-            "query": body.query,
+            "query": clean_query,
             "tenant_id": body.tenant_id,
             "session_id": body.session_id,
             "agent_type": "GENERAL",
@@ -81,25 +99,43 @@ async def infer(
         }
     )
 
+    # Output guard: PII scrub + hallucination risk + confidence scoring
+    guard_out = check_output(
+        response=result["response"],
+        agent_type=result["agent_type"],
+        confidence=result["confidence"],
+    )
+
+    # Merge guard flags — either agent or output guard can flag
+    final_flagged = result.get("flagged", False) or guard_out["flagged"]
+
     resolution_ms = int((time.monotonic() - started) * 1000)
 
     payload = {
-        "response": result["response"],
+        "response": guard_out["response"],
         "agent_type": result["agent_type"],
-        "confidence": result["confidence"],
-        "flagged": result.get("flagged", False),
+        "confidence": guard_out["confidence"],
+        "flagged": final_flagged,
     }
 
-    # Write to cache (fire and forget — don't block response)
-    write(body.query, body.tenant_id, payload)
+    # Cache write — fire and forget
+    write(clean_query, body.tenant_id, payload)
+
+    # Async auditor — fire and forget, never blocks response
+    schedule_audit(
+        tenant_id=body.tenant_id,
+        query=clean_query,
+        response=guard_out["response"],
+        agent_type=result["agent_type"],
+    )
 
     return InferResponse(
-        response=result["response"],
+        response=guard_out["response"],
         agent_type=result["agent_type"],
         cache_hit=False,
-        confidence=result["confidence"],
+        confidence=guard_out["confidence"],
         resolution_ms=resolution_ms,
-        flagged=result.get("flagged", False),
+        flagged=final_flagged,
     )
 
 

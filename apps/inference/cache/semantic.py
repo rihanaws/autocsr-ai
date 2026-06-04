@@ -1,10 +1,11 @@
+import hashlib
+import json
 import os
 import re
-import json
-import hashlib
+
 from upstash_vector import Index
 
-_TENANT_ID_RE = re.compile(r'^[A-Za-z0-9_-]{1,64}$')
+_TENANT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 SIMILARITY_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.92"))
 

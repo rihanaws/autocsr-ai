@@ -1,5 +1,6 @@
-import os
 import json
+import os
+
 from openai import OpenAI
 
 _client: OpenAI | None = None

@@ -1,4 +1,5 @@
 import os
+
 from openai import OpenAI
 
 _client: OpenAI | None = None
@@ -43,7 +44,7 @@ def deposit_agent(query: str, tenant_id: str) -> dict:
 
         return {"response": response, "flagged": flagged, "cache_hit": False}
 
-    except Exception as e:
+    except Exception:
         return {
             "response": "I'm unable to process your deposit inquiry right now. Please try again shortly.",
             "flagged": False,

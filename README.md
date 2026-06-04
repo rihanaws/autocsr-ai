@@ -16,7 +16,7 @@ Multi-agent AI platform purpose-built for online betting platforms.
 [![PostgreSQL](https://img.shields.io/badge/Neon%20PostgreSQL-00E599?style=flat-square&logo=neon&logoColor=black)](https://neon.tech)
 [![Prisma](https://img.shields.io/badge/Prisma%206-2D3748?style=flat-square&logo=prisma&logoColor=white)](https://prisma.io)
 [![Upstash](https://img.shields.io/badge/Upstash%20Redis-00E9A3?style=flat-square&logo=upstash&logoColor=black)](https://upstash.com)
-[![Stripe](https://img.shields.io/badge/Stripe-635BFF?style=flat-square&logo=stripe&logoColor=white)](https://stripe.com)
+[![Polar](https://img.shields.io/badge/Polar-0ea5e9?style=flat-square&logoColor=white)](https://polar.sh)
 [![Vercel](https://img.shields.io/badge/Vercel-black?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com)
 
 [![CI](https://github.com/rihanaws/autocsr-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/rihanaws/autocsr-ai/actions/workflows/ci.yml)
@@ -49,23 +49,34 @@ Customer Query
 ┌──────────────────▼──────────────────────────┐
 │        FASTAPI ORCHESTRATION (Railway)       │
 │                                              │
-│  Input Guard → Semantic Cache (Upstash)      │
+│  Input Guard (scope filter + PII redact)     │
+│       │                                      │
+│       ▼                                      │
+│  Semantic Cache (Upstash Vector, cos ≥ 0.92) │
 │       │                                      │
 │       └─ MISS → GPT-4o-mini Router           │
 │                       │                      │
-│          ┌────────────┼────────────┐         │
-│          ▼            ▼            ▼         │
-│      Deposit     Withdrawal    Verification  │
-│      LoRA-01      LoRA-02       LoRA-03      │
+│       ┌───────────────┼───────────────┐      │
+│       ▼               ▼               ▼      │
+│   Deposit        Withdrawal      Verification│
+│   LoRA-01         LoRA-02         LoRA-03    │
 │                                              │
-│          Output Guard → Cache Write          │
+│       ┌───────────────┘                      │
+│       ▼               ▼                      │
+│   Onboarding       General                   │
+│   LoRA-04          LoRA-05                   │
+│                                              │
+│  Output Guard (hallucination + PII scan)     │
+│       │                                      │
+│       ▼                                      │
+│  Cache Write + Async Auditor (fire & forget) │
 └──────────────────────────────────────────────┘
                    │
 ┌──────────────────▼──────────────────────────┐
 │              ASYNC LAYER                     │
 │  Claude Haiku Auditor (5% sample)            │
 │  Weekly QLoRA Fine-tune (Unsloth)            │
-│  Human Review Queue                          │
+│  Human Review Queue (flagged responses)      │
 └──────────────────────────────────────────────┘
 ```
 
@@ -149,7 +160,7 @@ autocsr/
 | Cache | [Upstash Redis](https://upstash.com) + [Upstash Vector](https://upstash.com) |
 | Queue | [Upstash QStash](https://upstash.com/qstash) |
 | Auth | [NextAuth.js v5](https://authjs.dev) |
-| Billing | [Stripe](https://stripe.com) |
+| Billing | [Polar](https://polar.sh) |
 | Email | [Resend](https://resend.com) |
 | Inference Host | [Railway](https://railway.app) |
 | Frontend Host | [Vercel](https://vercel.com) |
@@ -191,9 +202,8 @@ bun install
 cp apps/web/.env.example apps/web/.env.local
 # Fill in: DATABASE_URL, AUTH_SECRET, UPSTASH_*, AUTH_GOOGLE_*
 
-# Push database schema
+# Push database schema (dotenv-cli loads .env.local automatically)
 cd apps/web
-unset DATABASE_URL   # important: prevents shell env override
 bun run db:push
 
 # Start Next.js dev server
@@ -247,7 +257,8 @@ Copy `apps/web/.env.example` to `apps/web/.env.local`. Required vars:
 | `AUTH_GOOGLE_ID` / `SECRET` | [Google Cloud Console](https://console.cloud.google.com) |
 | `UPSTASH_REDIS_REST_URL` / `TOKEN` | [Upstash Console](https://console.upstash.com) |
 | `UPSTASH_VECTOR_REST_URL` / `TOKEN` | [Upstash Console](https://console.upstash.com) |
-| `STRIPE_SECRET_KEY` | [Stripe Dashboard](https://dashboard.stripe.com) |
+| `POLAR_ACCESS_TOKEN` / `POLAR_WEBHOOK_SECRET` | [Polar Dashboard](https://dashboard.polar.sh) |
+| `POLAR_PRODUCT_ID_STARTER` / `_GROWTH` / `_ENTERPRISE` | [Polar Products](https://dashboard.polar.sh) |
 | `RESEND_API_KEY` | [Resend](https://resend.com/api-keys) |
 
 ---
@@ -255,10 +266,10 @@ Copy `apps/web/.env.example` to `apps/web/.env.local`. Required vars:
 ## Build Progress
 
 - [x] **Week 1** — Monorepo, Next.js 15, Tailwind v4, Prisma + Neon, Auth, Extension scaffold, FastAPI skeleton
-- [ ] **Week 2** — LangGraph pipeline, semantic cache, /api/chat proxy, extension export
-- [ ] **Week 3** — All 5 agents, input/output guards, async auditor
+- [x] **Week 2** — LangGraph pipeline, semantic cache, /api/chat proxy, extension export
+- [~] **Week 3** — All 5 agents ✅, input/output guards ✅, async auditor ✅, Polar billing ✅, dashboard (in progress)
 - [ ] **Week 4** — Training pipeline (Unsloth QLoRA), weekly scheduler
-- [ ] **Weeks 5–6** — Landing page, dashboard, review queue UI, Stripe billing
+- [ ] **Weeks 5–6** — Landing page, dashboard, review queue UI, Polar billing UI
 - [ ] **Week 7** — OKBET pilot prep, Thompson pitch
 
 ---

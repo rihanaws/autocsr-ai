@@ -1,7 +1,13 @@
-from typing import TypedDict, Optional
-from langgraph.graph import StateGraph, END
-from .router import classify
+from typing import Optional, TypedDict
+
+from langgraph.graph import END, StateGraph
+
 from .agents.deposit import deposit_agent
+from .agents.general import general_agent
+from .agents.onboarding import onboarding_agent
+from .agents.verification import verification_agent
+from .agents.withdrawal import withdrawal_agent
+from .router import classify
 
 
 class WorkflowState(TypedDict):
@@ -22,6 +28,7 @@ def route_node(state: WorkflowState) -> WorkflowState:
 
 
 def dispatch(state: WorkflowState) -> str:
+    # Confidence < 0.7 already handled in router.classify — always returns GENERAL
     return state["agent_type"]
 
 
@@ -30,12 +37,24 @@ def deposit_node(state: WorkflowState) -> WorkflowState:
     return {**state, **result}
 
 
+def withdrawal_node(state: WorkflowState) -> WorkflowState:
+    result = withdrawal_agent(state["query"], state["tenant_id"])
+    return {**state, **result}
+
+
+def verification_node(state: WorkflowState) -> WorkflowState:
+    result = verification_agent(state["query"], state["tenant_id"])
+    return {**state, **result}
+
+
+def onboarding_node(state: WorkflowState) -> WorkflowState:
+    result = onboarding_agent(state["query"], state["tenant_id"])
+    return {**state, **result}
+
+
 def general_node(state: WorkflowState) -> WorkflowState:
-    return {
-        **state,
-        "response": "I can help with that. Please provide more details.",
-        "flagged": False,
-    }
+    result = general_agent(state["query"], state["tenant_id"])
+    return {**state, **result}
 
 
 def build_graph() -> StateGraph:
@@ -43,9 +62,9 @@ def build_graph() -> StateGraph:
 
     graph.add_node("router", route_node)
     graph.add_node("DEPOSIT", deposit_node)
-    graph.add_node("WITHDRAWAL", general_node)
-    graph.add_node("VERIFICATION", general_node)
-    graph.add_node("ONBOARDING", general_node)
+    graph.add_node("WITHDRAWAL", withdrawal_node)
+    graph.add_node("VERIFICATION", verification_node)
+    graph.add_node("ONBOARDING", onboarding_node)
     graph.add_node("GENERAL", general_node)
 
     graph.set_entry_point("router")
