@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import type { Tier } from '@prisma/client'
+import { createCheckout } from './actions'
 
 const TIER_COLORS: Record<Tier, { bg: string; border: string; text: string }> = {
   FREE:       { bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.12)', text: '#606075' },
@@ -56,11 +57,6 @@ function barColor(pct: number) {
   return '#4f46e5'
 }
 
-function getCheckoutUrl(tier: Tier): string {
-  if (tier === 'STARTER') return process.env.POLAR_CHECKOUT_STARTER ?? '#'
-  if (tier === 'GROWTH')  return process.env.POLAR_CHECKOUT_GROWTH  ?? '#'
-  return process.env.POLAR_CHECKOUT_ENTERPRISE ?? '#'
-}
 
 export default async function BillingPage() {
   const session = await auth()
@@ -122,7 +118,7 @@ export default async function BillingPage() {
 
           {isManaged ? (
             <a
-              href={tenant.stripeCustomerId ? `https://dashboard.polar.sh` : '#'}
+              href="https://sandbox.polar.sh"
               target="_blank"
               rel="noopener noreferrer"
               className="font-mono text-[11px] px-4 py-2 rounded-md transition-colors"
@@ -131,15 +127,15 @@ export default async function BillingPage() {
               Manage Billing
             </a>
           ) : (
-            <a
-              href={getCheckoutUrl(tier === 'FREE' ? 'STARTER' : 'GROWTH')}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-mono text-[11px] px-4 py-2 rounded-md transition-colors"
-              style={{ background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)', color: '#a5a0ff' }}
-            >
-              Upgrade Plan →
-            </a>
+            <form action={createCheckout.bind(null, tier === 'FREE' ? 'STARTER' : 'GROWTH')}>
+              <button
+                type="submit"
+                className="font-mono text-[11px] px-4 py-2 rounded-md transition-colors"
+                style={{ background: 'rgba(79,70,229,0.12)', border: '1px solid rgba(79,70,229,0.3)', color: '#a5a0ff' }}
+              >
+                Upgrade Plan →
+              </button>
+            </form>
           )}
         </div>
 

@@ -46,6 +46,27 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 Weeks 1–3: COMPLETE
 Week 4: IN PROGRESS — read .claude/skills/week4-tasks.md
 
+## Polar Sandbox — Billing (wired 2026-06-05)
+Products live in Polar sandbox org `d86c3924-e933-4322-ab4a-83370cc25f1c`:
+- Starter: `1500891c-b6ef-4270-9dea-acee7f679cc7` ($149/mo)
+- Growth:  `f3459e45-a3f7-4355-ad00-85cd1d8d1365` ($499/mo)
+- Enterprise: `e40620eb-cb27-4577-81a2-1b6c88f2601a` (free placeholder)
+Webhook endpoint ID: `af9d750c-9284-462e-8bb8-db9e9d568667`
+Checkout: Server Action in `app/(dashboard)/settings/billing/actions.ts`
+Webhook handler: `app/api/webhooks/polar/route.ts` — matches on `customer.externalId` (=tenantId)
+CRITICAL: Polar sends tenantId as `customer.externalId`, NOT `customerId` — match on `id` first
+
+## Neon DB — Two endpoints (same project)
+- Pooler (used by app): `ep-proud-sound-aoyz34le-pooler.c-2.ap-southeast-1.aws.neon.tech` — has inference tables only (cache_entries, transactions, etc.)
+- Non-pooler (auth/app tables): `ep-proud-sound-aoyz34le.c-2.ap-southeast-1.aws.neon.tech` — has Tenant, User, Session, etc.
+- App DB queries work because Prisma uses pooler with ?channel_binding=require; psql direct queries need non-pooler URL
+- Tables: Account, KnowledgeChunk, QueryEvent, ReviewItem, Session, Tenant, TrainingExample, TrainingRun, User, VerificationToken
+
+## ngrok (local dev tunneling)
+Static URL: `https://foziest-prius-maranda.ngrok-free.dev` → localhost:3000
+Config: `~/Library/Application Support/ngrok/ngrok.yml`
+Start: `ngrok http --url=foziest-prius-maranda.ngrok-free.dev 3000`
+
 ## Commands
 bun run dev           # Next.js turbopack
 bun run typecheck     # tsc --noEmit — run after every TS change

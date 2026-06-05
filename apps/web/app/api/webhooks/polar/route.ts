@@ -38,6 +38,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Webhook parse error" }, { status: 400 });
   }
 
+  console.log('[Polar Sandbox]', event.type, JSON.stringify((event as { data: unknown }).data, null, 2))
+
   try {
     switch (event.type) {
       case "subscription.created":
@@ -45,27 +47,42 @@ export async function POST(req: Request): Promise<NextResponse> {
       case "subscription.updated":
       case "subscription.uncanceled": {
         const sub = event.data;
-        const customerId = sub.customerId;
+        const externalId = (sub.customer as { externalId?: string | null } | null)?.externalId;
+        const polarCustomerId = sub.customerId;
         const productId = sub.productId;
         const tier = tierFromProductId(productId);
 
-        await db.tenant.updateMany({
-          where: { stripeCustomerId: customerId },
-          data: {
-            tier,
-            stripeSubId: sub.id,
-          },
-        });
+        if (externalId) {
+          // externalId = tenantId set during checkout
+          await db.tenant.updateMany({
+            where: { id: externalId },
+            data: { tier, stripeCustomerId: polarCustomerId, stripeSubId: sub.id },
+          });
+        } else {
+          // fallback: match by stored Polar customer ID
+          await db.tenant.updateMany({
+            where: { stripeCustomerId: polarCustomerId },
+            data: { tier, stripeSubId: sub.id },
+          });
+        }
         break;
       }
 
       case "subscription.canceled":
       case "subscription.revoked": {
         const sub = event.data;
-        await db.tenant.updateMany({
-          where: { stripeSubId: sub.id },
-          data: { tier: "FREE" },
-        });
+        const externalId = (sub.customer as { externalId?: string | null } | null)?.externalId;
+        if (externalId) {
+          await db.tenant.updateMany({
+            where: { id: externalId },
+            data: { tier: "FREE" },
+          });
+        } else {
+          await db.tenant.updateMany({
+            where: { stripeSubId: sub.id },
+            data: { tier: "FREE" },
+          });
+        }
         break;
       }
 

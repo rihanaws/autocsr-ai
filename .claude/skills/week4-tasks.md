@@ -13,9 +13,9 @@
 ## Pending
 
 ### Priority 1 — Must finish before OKBET pilot
-- [ ] Polar sandbox: wire real product IDs + test checkout flow
+- [x] Polar sandbox: wire real product IDs + test checkout flow (2026-06-05)
 - [ ] Welcome email (Resend + React Email)
-- [ ] app/global-error.tsx — create required error boundary
+- [x] app/global-error.tsx — create required error boundary
 
 ### Priority 2 — Core pipeline
 - [ ] Training pipeline: pipeline/finetune.py (Unsloth QLoRA)
