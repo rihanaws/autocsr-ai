@@ -4,6 +4,14 @@ import { useState, useTransition } from 'react'
 import type { ReviewItem } from '@prisma/client'
 import { approveReview, rejectReview, correctReview } from '@/app/(dashboard)/review-queue/actions'
 
+const AGENT_TAG: Record<string, { bg: string; color: string; border: string }> = {
+  DEPOSIT:      { bg: 'rgba(34,197,94,0.1)',   color: '#4ade80', border: 'rgba(34,197,94,0.18)'   },
+  WITHDRAWAL:   { bg: 'rgba(245,158,11,0.1)',  color: '#fbbf24', border: 'rgba(245,158,11,0.18)'  },
+  VERIFICATION: { bg: 'rgba(168,85,247,0.1)',  color: '#c084fc', border: 'rgba(168,85,247,0.18)'  },
+  ONBOARDING:   { bg: 'rgba(59,130,246,0.1)',  color: '#60a5fa', border: 'rgba(59,130,246,0.18)'  },
+  GENERAL:      { bg: 'rgba(100,100,120,0.15)', color: '#9ca3af', border: 'rgba(100,100,120,0.2)' },
+}
+
 function scoreColor(score: number) {
   if (score >= 0.8) return '#22c55e'
   if (score >= 0.6) return '#f59e0b'
@@ -14,6 +22,7 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
   const [correcting, setCorrecting] = useState(false)
   const [text, setText] = useState('')
   const [pending, startTransition] = useTransition()
+  const tag = AGENT_TAG[item.agentType] ?? AGENT_TAG.GENERAL
 
   return (
     <div
@@ -28,11 +37,7 @@ export function ReviewCard({ item }: { item: ReviewItem }) {
         <div className="flex items-center gap-2">
           <span
             className="font-mono uppercase text-[8px] px-1.5 py-0.5 rounded"
-            style={{
-              background: 'rgba(100,100,120,0.15)',
-              border: '1px solid rgba(100,100,120,0.2)',
-              color: '#9ca3af',
-            }}
+            style={{ background: tag.bg, border: `1px solid ${tag.border}`, color: tag.color }}
           >
             {item.agentType}
           </span>

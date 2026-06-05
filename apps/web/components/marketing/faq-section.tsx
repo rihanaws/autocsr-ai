@@ -10,27 +10,27 @@ import {
 const FAQS = [
   {
     q: 'Does it replace all my agents?',
-    a: 'No. AutoCSR handles 80%+ of incoming tickets autonomously. Complex cases, escalations, and low-confidence responses are routed to your human review queue immediately.',
+    a: 'No. AutoCSR handles 80%+ of routine tickets automatically. Complex cases, disputes, and anything requiring account-level decisions escalate to your human review queue with full conversation context.',
   },
   {
     q: 'How does it learn from our data?',
-    a: "Weekly QLoRA fine-tuning runs on your resolved session history. Your data exclusively trains your tenant's LoRA adapters and is never shared with or used to improve other tenants' models.",
+    a: "Weekly QLoRA fine-tuning on your resolved sessions. 30% new data, 70% replay buffer prevents catastrophic forgetting. Your data is isolated — it never trains other tenants' models.",
   },
   {
-    q: 'What happens if it gives a wrong answer?',
-    a: 'An LLM auditor samples 5% of all responses. Any answer with confidence below threshold is held for human review before delivery. You can tighten or loosen this threshold in settings.',
+    q: 'What if it gives a wrong answer?',
+    a: 'An LLM auditor samples 5% of responses asynchronously. Anything scoring below your configured confidence threshold goes to human review before the customer sees it. Default threshold is 0.6.',
   },
   {
     q: 'How long does deployment take?',
-    a: '30 days from signed agreement to live traffic. Week 1: data collection via Chrome extension. Weeks 2–3: model training and evaluation. Week 4: pilot in shadow mode before full cutover.',
+    a: '30 days. Week 1: data collection. Weeks 2–3: model training. Week 4: shadow-mode pilot running alongside your existing team. Live when accuracy benchmarks are met.',
   },
   {
     q: 'Is our customer data secure?',
-    a: 'PII is scrubbed at ingestion before any query reaches the model. All stored data is AES-GCM encrypted. Anonymized queries only. Data never leaves your authorized IP range per the signed data agreement.',
+    a: 'PII is scrubbed at ingestion. Amounts are tokenised, names removed, account IDs hashed. Data only flows from authorized IP addresses specified in the signed data access agreement.',
   },
   {
     q: 'What platforms does it integrate with?',
-    a: 'LiveAgent (native connector). Zendesk, Freshdesk, and Intercom via webhook. Any custom platform via REST API. Integration setup is included in the onboarding week.',
+    a: 'LiveAgent natively. Zendesk, Freshdesk, and Intercom via webhook. Any other platform via REST API. Integration setup takes under an hour.',
   },
 ]
 
@@ -52,17 +52,18 @@ export function FaqSection() {
           {FAQS.map((faq, i) => (
             <AccordionItem
               key={i}
-              className="not-last:border-b"
-              style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+              value={String(i)}
+              className="not-last:border-b-0 py-1"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
             >
               <AccordionTrigger
-                className="font-mono text-[13px] text-left py-5 hover:no-underline"
+                className="text-[14px] text-left py-4 hover:no-underline"
                 style={{ color: '#e8e8f0' }}
               >
                 {faq.q}
               </AccordionTrigger>
               <AccordionContent
-                className="text-[13px] leading-relaxed pb-5"
+                className="text-[13px] leading-relaxed pb-4"
                 style={{ color: '#606075' }}
               >
                 {faq.a}

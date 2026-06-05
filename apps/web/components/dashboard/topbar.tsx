@@ -1,4 +1,12 @@
-export function Topbar({ title }: { title: string }) {
+import { ProfileDropdown } from '@/components/dashboard/profile-dropdown'
+
+interface TopbarProps {
+  title: string
+  userName: string | null
+  userEmail: string
+}
+
+export function Topbar({ title, userName, userEmail }: TopbarProps) {
   const now = new Date()
   const dateStr = now.toLocaleDateString('en-US', {
     month: 'short',
@@ -25,7 +33,7 @@ export function Topbar({ title }: { title: string }) {
       >
         {title}
       </span>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         <span className="font-mono" style={{ fontSize: 9, color: '#30303f' }}>
           {dateStr}
         </span>
@@ -51,6 +59,7 @@ export function Topbar({ title }: { title: string }) {
           />
           LIVE
         </div>
+        <ProfileDropdown name={userName} email={userEmail} />
       </div>
     </div>
   )

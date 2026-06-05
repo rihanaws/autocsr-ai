@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { ReviewCard } from '@/components/dashboard/review-card'
 
 export default async function ReviewQueuePage() {
@@ -17,7 +17,7 @@ export default async function ReviewQueuePage() {
 
   return (
     <>
-      <Topbar title="Review Queue" />
+      <DashboardTopbar title="Review Queue" />
       <div className="p-5 overflow-auto">
         {items.length === 0 && (
           <div

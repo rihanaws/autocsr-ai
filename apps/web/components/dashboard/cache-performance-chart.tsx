@@ -21,11 +21,11 @@ function CustomTooltip({ active, payload, label }: {
   return (
     <div style={{
       background: '#141420',
-      border: '1px solid rgba(255,255,255,0.08)',
+      border: '1px solid rgba(255,255,255,0.1)',
       borderRadius: 6,
       padding: '8px 10px',
-      fontFamily: 'var(--font-mono)',
-      fontSize: 10,
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: 11,
     }}>
       <p style={{ color: '#606075', marginBottom: 4 }}>{label}</p>
       {payload.map(p => (
@@ -59,7 +59,7 @@ export function CachePerformanceChart({ data }: { data: CacheChartRow[] }) {
               <stop offset="100%" stopColor="#f59e0b" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} vertical={false} />
+          <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="0" vertical={false} />
           <XAxis dataKey="day" tickLine={false} axisLine={false} tick={tickStyle} tickFormatter={v => v.slice(5)} />
           <YAxis tickLine={false} axisLine={false} tick={tickStyle} width={30} unit="%" />
           <Tooltip content={<CustomTooltip />} />

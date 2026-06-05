@@ -36,11 +36,11 @@ function CustomTooltip({ active, payload, label }: {
     <div
       style={{
         background: '#141420',
-        border: '1px solid rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: 6,
         padding: '8px 10px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 10,
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: 11,
       }}
     >
       <p style={{ color: '#606075', marginBottom: 4 }}>{label}</p>
@@ -75,7 +75,7 @@ export function QueryVolumeChart({ data }: { data: Row[] }) {
           </defs>
           <CartesianGrid
             stroke="rgba(255,255,255,0.04)"
-            strokeWidth={0.5}
+            strokeDasharray="0"
             vertical={false}
           />
           <XAxis

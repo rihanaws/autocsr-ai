@@ -44,6 +44,8 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
+  totpSecret    String?
+  totpEnabled   Boolean   @default(false)
   accounts      Account[]
   sessions      Session[]
   tenant        Tenant?

@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { AgentSparkline } from '@/components/dashboard/agent-sparkline'
 
 const AGENTS = ['DEPOSIT', 'WITHDRAWAL', 'VERIFICATION', 'ONBOARDING', 'GENERAL'] as const
@@ -62,7 +62,7 @@ export default async function AgentsPage() {
 
   return (
     <>
-      <Topbar title="Agents" />
+      <DashboardTopbar title="Agents" />
       <div className="p-5 overflow-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
@@ -70,7 +70,7 @@ export default async function AgentsPage() {
               {['Agent', 'Queries (30d)', 'Avg Ms', 'Avg Score', 'Flagged', 'Trend 7d', 'Status', 'Adapter'].map(h => (
                 <th
                   key={h}
-                  className="font-mono text-left pb-2 pr-6 text-[9px] uppercase tracking-wider"
+                  className="font-mono text-left pb-2 pr-6 text-[10px] uppercase tracking-[0.08em] font-medium"
                   style={{ color: '#606075' }}
                 >
                   {h}

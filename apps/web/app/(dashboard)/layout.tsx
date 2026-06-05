@@ -3,6 +3,13 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 
+function firstOfMonth() {
+  const d = new Date()
+  d.setDate(1)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -10,15 +17,16 @@ export default async function DashboardLayout({
 }) {
   const session = await auth()
   if (!session?.user?.tenantId) redirect('/login')
+  const tenantId = session.user.tenantId
 
-  const reviewCount = await db.reviewItem.count({
-    where: { tenantId: session.user.tenantId, status: 'PENDING' },
-  })
-
-  const tenant = await db.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: { name: true, tier: true },
-  })
+  const [reviewCount, tenant, usedThisMonth] = await Promise.all([
+    db.reviewItem.count({ where: { tenantId, status: 'PENDING' } }),
+    db.tenant.findUnique({
+      where: { id: tenantId },
+      select: { name: true, tier: true },
+    }),
+    db.queryEvent.count({ where: { tenantId, createdAt: { gte: firstOfMonth() } } }),
+  ])
 
   return (
     <div
@@ -29,6 +37,7 @@ export default async function DashboardLayout({
         tenantName={tenant?.name ?? 'Unknown'}
         tier={tenant?.tier ?? 'FREE'}
         reviewCount={reviewCount}
+        usedThisMonth={usedThisMonth}
       />
       <div className="flex flex-col flex-1 min-w-0">
         {children}

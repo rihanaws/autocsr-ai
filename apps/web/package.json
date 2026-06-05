@@ -31,6 +31,8 @@
     "motion": "^11.15.0",
     "next": "16.2.7",
     "next-auth": "^5.0.0-beta.25",
+    "otplib": "^13.4.1",
+    "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.8.1",
@@ -43,6 +45,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@types/node": "^22",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",

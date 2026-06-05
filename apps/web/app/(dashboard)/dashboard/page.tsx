@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { QueryVolumeChart } from '@/components/dashboard/query-volume-chart'
 import { LiveFeed } from '@/components/dashboard/live-feed'
 
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
 
   return (
     <>
-      <Topbar title="Overview" />
+      <DashboardTopbar title="Overview" />
       {/* KPI strip */}
       <div
         className="grid shrink-0"

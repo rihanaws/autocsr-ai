@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { ApiKeySection, InferenceEndpointSection, DangerZoneSection } from '@/components/dashboard/settings-client'
 
 const TIER_COLORS: Record<string, { bg: string; border: string; text: string }> = {
@@ -52,7 +52,7 @@ export default async function SettingsPage() {
 
   return (
     <>
-      <Topbar title="Settings" />
+      <DashboardTopbar title="Settings" />
       <div className="flex-1 overflow-y-auto p-5 space-y-4 max-w-2xl">
 
         {/* Workspace */}

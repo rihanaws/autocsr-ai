@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { AccuracyChart } from '@/components/dashboard/accuracy-chart'
 import { TrainingCountdown } from '@/components/dashboard/training-countdown'
 
@@ -33,7 +33,7 @@ export default async function TrainingPage() {
 
   return (
     <>
-      <Topbar title="Training" />
+      <DashboardTopbar title="Training" />
       <div className="p-5 overflow-auto flex flex-col gap-6">
         {/* Next run countdown */}
         <div
@@ -70,7 +70,7 @@ export default async function TrainingPage() {
               {['Date', 'Examples', 'Eval Accuracy', 'Delta', 'Status'].map(h => (
                 <th
                   key={h}
-                  className="font-mono text-left pb-2 pr-6 text-[9px] uppercase tracking-wider"
+                  className="font-mono text-left pb-2 pr-6 text-[10px] uppercase tracking-[0.08em] font-medium"
                   style={{ color: '#606075' }}
                 >
                   {h}

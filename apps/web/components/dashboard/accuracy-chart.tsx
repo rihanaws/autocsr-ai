@@ -19,11 +19,11 @@ function CustomTooltip({ active, payload }: {
     <div
       style={{
         background: '#141420',
-        border: '1px solid rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.1)',
         borderRadius: 6,
         padding: '6px 10px',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 10,
+        fontFamily: 'JetBrains Mono, monospace',
+        fontSize: 11,
         color: '#e8e8f0',
       }}
     >
@@ -43,7 +43,7 @@ export function AccuracyChart({ data }: { data: Array<{ i: number; accuracy: num
     <div style={{ height: 140 }}>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-          <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeWidth={0.5} vertical={false} />
+          <CartesianGrid stroke="rgba(255,255,255,0.04)" strokeDasharray="0" vertical={false} />
           <XAxis dataKey="i" tickLine={false} axisLine={false} tick={tickStyle} />
           <YAxis
             tickLine={false}

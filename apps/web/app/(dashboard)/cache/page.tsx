@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { CachePerformanceChart, type CacheChartRow } from '@/components/dashboard/cache-performance-chart'
 
 function startOf24h() {
@@ -74,7 +74,7 @@ export default async function CachePage() {
 
   return (
     <>
-      <Topbar title="Cache" />
+      <DashboardTopbar title="Cache" />
 
       {/* KPI strip */}
       <div
@@ -137,7 +137,7 @@ export default async function CachePage() {
                   <thead>
                     <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                       {['Query', 'Agent', 'Hits', 'Last Hit'].map(h => (
-                        <th key={h} className="font-mono text-[9px] text-left pb-2 pr-3" style={{ color: '#30303f' }}>
+                        <th key={h} className="font-mono text-[10px] text-left pb-2 pr-3 uppercase tracking-[0.08em] font-medium" style={{ color: '#606075' }}>
                           {h}
                         </th>
                       ))}

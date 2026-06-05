@@ -1,7 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
-import { Topbar } from '@/components/dashboard/topbar'
+import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { AddKnowledgeDialog, DeleteChunkButton } from '@/components/dashboard/knowledge-client'
 
 const SOURCE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
@@ -24,7 +24,7 @@ export default async function KnowledgePage() {
 
   return (
     <>
-      <Topbar title="Knowledge Base" />
+      <DashboardTopbar title="Knowledge Base" />
       <div className="flex-1 overflow-y-auto p-5">
 
         {/* Header row */}
@@ -69,8 +69,8 @@ export default async function KnowledgePage() {
                   {['Content', 'Source', 'Agent', 'Created', ''].map(h => (
                     <th
                       key={h}
-                      className="font-mono text-[9px] text-left px-4 py-3"
-                      style={{ color: '#30303f', letterSpacing: '0.05em' }}
+                      className="font-mono text-[10px] text-left px-4 py-3 uppercase tracking-[0.08em] font-medium"
+                      style={{ color: '#606075' }}
                     >
                       {h}
                     </th>
@@ -83,7 +83,7 @@ export default async function KnowledgePage() {
                   return (
                     <tr
                       key={chunk.id}
-                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: '#0a0a13' }}
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: '#0f0f18' }}
                     >
                       <td className="px-4 py-3 max-w-xs" style={{ color: '#c0c0d0' }}>
                         <span className="line-clamp-2 leading-snug">{chunk.content.slice(0, 80)}{chunk.content.length > 80 ? '…' : ''}</span>

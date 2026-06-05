@@ -2,17 +2,17 @@ const TRUST_STATS = [
   {
     value: '< 4s',
     label: 'Response time guarantee',
-    detail: 'P99 SLA across all query types',
+    borderColor: '#4f46e5',
   },
   {
     value: '80%+',
     label: 'Queries resolved without human',
-    detail: 'Complex cases route to human queue',
+    borderColor: '#22c55e',
   },
   {
     value: '0 data',
     label: 'Stored in plain text',
-    detail: 'AES-GCM encrypted at ingestion',
+    borderColor: '#f59e0b',
   },
 ]
 
@@ -23,42 +23,36 @@ export function TrustSection() {
       style={{ background: '#0a0a13', borderTop: '1px solid rgba(255,255,255,0.06)' }}
     >
       <div className="max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {TRUST_STATS.map(s => (
             <div
               key={s.label}
-              className="rounded-md p-6"
+              className="rounded-lg p-6"
               style={{
-                background: '#111119',
+                background: '#0f0f18',
                 border: '1px solid rgba(255,255,255,0.06)',
-                borderLeft: '3px solid #4f46e5',
+                borderLeft: `2px solid ${s.borderColor}`,
               }}
             >
               <div
-                className="font-mono font-semibold tabular-nums mb-2"
-                style={{ fontSize: '36px', letterSpacing: '-0.04em', color: '#e8e8f0', lineHeight: 1 }}
+                className="font-mono font-semibold tabular-nums"
+                style={{ fontSize: '32px', color: '#e8e8f0', lineHeight: 1 }}
               >
                 {s.value}
               </div>
               <div
-                className="font-mono text-[11px] font-medium mb-1"
-                style={{ color: '#a5a0ff' }}
+                className="mt-1"
+                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: '#606075' }}
               >
                 {s.label}
-              </div>
-              <div
-                className="font-mono text-[10px]"
-                style={{ color: '#606075' }}
-              >
-                {s.detail}
               </div>
             </div>
           ))}
         </div>
 
         <p
-          className="font-mono text-[11px]"
-          style={{ color: '#606075' }}
+          className="text-center mt-8"
+          style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: '#606075' }}
         >
           Built for regulated industries. GDPR-aware. PII scrubbed at ingestion.
         </p>
