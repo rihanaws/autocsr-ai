@@ -46,6 +46,14 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 Weeks 1–3: COMPLETE
 Week 4: IN PROGRESS — read .claude/skills/week4-tasks.md
 
+## Email — Welcome (wired 2026-06-05)
+Template: `emails/welcome.tsx` — React Email, dark theme
+Singleton: `lib/resend.ts`
+Triggered: `lib/auth.ts` createUser event, after Tenant row created
+From: AutoCSR <noreply@techsci.co> | Subject: "Welcome to AutoCSR — your pilot is ready"
+Error-safe: try/catch — email failure does not block user creation
+Preview: `bun run email:dev` → localhost:3001
+
 ## Polar Sandbox — Billing (wired 2026-06-05)
 Products live in Polar sandbox org `d86c3924-e933-4322-ab4a-83370cc25f1c`:
 - Starter: `1500891c-b6ef-4270-9dea-acee7f679cc7` ($149/mo)

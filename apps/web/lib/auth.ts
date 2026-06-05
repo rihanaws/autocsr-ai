@@ -3,6 +3,8 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
+import { resend } from "@/lib/resend";
+import WelcomeEmail from "@/emails/welcome";
 import type { Tier } from "@prisma/client";
 
 declare module "next-auth" {
@@ -35,13 +37,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // Auto-provision a Tenant for every new sign-up
       if (!user.id || !user.email) return;
       const slug = user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "-");
-      await db.tenant.create({
+      const tenant = await db.tenant.create({
         data: {
           userId: user.id,
           name: user.name ?? user.email,
           slug: `${slug}-${user.id.slice(-6)}`,
         },
       });
+
+      try {
+        const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+        await resend.emails.send({
+          from: "AutoCSR <noreply@techsci.co>",
+          to: user.email,
+          subject: "Welcome to AutoCSR — your pilot is ready",
+          react: WelcomeEmail({ tenantName: tenant.name, dashboardUrl }),
+        });
+      } catch {
+        // email failure must not block user creation
+      }
     },
   },
   callbacks: {
