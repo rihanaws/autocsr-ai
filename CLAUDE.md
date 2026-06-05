@@ -87,9 +87,14 @@ Copy `apps/web/.env.example` → `apps/web/.env.local` and fill in:
 - `RESEND_API_KEY` — from resend.com/api-keys
 - `INFERENCE_SERVICE_URL` — local: `http://localhost:8000` / prod: Railway URL
 
-⚠️ **DB push gotcha:** shell `DATABASE_URL` env var overrides `.env.local`.
-DB scripts now use `dotenv-cli` — always run via `bun run db:*` (never call prisma directly).
-Legacy fallback: `unset DATABASE_URL && bun run db:push`
+⚠️ **DB push gotcha:** shell `DATABASE_URL` env var always overrides `.env.local`.
+Always prefix prisma commands with the Neon URL directly — never rely on dotenv-cli or bun run db:*:
+
+```bash
+DATABASE_URL='postgresql://neondb_owner:npg_kPcva1JKV4io@ep-proud-sound-aoyz34le-pooler.c-2.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require' bunx prisma db push
+DATABASE_URL='...' bunx prisma generate
+DATABASE_URL='...' bunx prisma studio
+```
 
 ## GitHub Actions Secrets Required
 Add these in repo Settings → Secrets → Actions:
@@ -156,6 +161,22 @@ Add these in repo Settings → Secrets → Actions:
 ✅ postcss.config.mjs + @tailwindcss/postcss — Tailwind v4 PostCSS wired for Turbopack
 ☐ Email: welcome email via Resend + React Email template (moved to Week 4)
 ☐ Extension: load unpacked in Chrome, verify capture on LiveAgent session (E2E) (moved to Week 4)
+```
+
+---
+
+**WEEK 3.5 — Auth + DB Hardening** ✅ COMPLETE (2026-06-05)
+
+```text
+✅ next.config.ts — serverComponentsExternalPackages moved to top-level serverExternalPackages
+✅ app/(auth)/layout.tsx — minimal centered dark layout
+✅ app/(auth)/login/page.tsx — Google OAuth + magic link, dark card design
+✅ app/(auth)/signup/page.tsx — Google OAuth + company/email fields, matches login design
+✅ lib/auth.ts — added Resend provider (from: noreply@techsci.co), removed dead Credentials stub
+✅ lib/auth.ts — fixed session callback: Tenant query was WHERE id=userId (wrong) → WHERE userId=userId
+✅ lib/auth.ts — added createUser event to auto-provision Tenant on first sign-in
+✅ Neon DB schema re-synced (dropped stale cache_entries/cache_stats, all 10 tables live)
+✅ Tenant rows backfilled for existing users (rihanawsacc@gmail.com, sayemrihan.com@gmail.com)
 ```
 
 ---

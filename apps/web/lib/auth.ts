@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
-import Credentials from "next-auth/providers/credentials";
+import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
 import type { Tier } from "@prisma/client";
 
@@ -25,21 +25,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       clientId: process.env.AUTH_GOOGLE_ID!,
       clientSecret: process.env.AUTH_GOOGLE_SECRET!,
     }),
-    Credentials({
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        // TODO: implement credential auth with password hashing
-        return null;
-      },
+    Resend({
+      apiKey: process.env.RESEND_API_KEY!,
+      from: "AutoCSR <noreply@techsci.co>",
     }),
   ],
+  events: {
+    async createUser({ user }) {
+      // Auto-provision a Tenant for every new sign-up
+      if (!user.id || !user.email) return;
+      const slug = user.email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, "-");
+      await db.tenant.create({
+        data: {
+          userId: user.id,
+          name: user.name ?? user.email,
+          slug: `${slug}-${user.id.slice(-6)}`,
+        },
+      });
+    },
+  },
   callbacks: {
     async session({ session, user }) {
-      const tenant = await db.tenant.findFirst({
-        where: { id: user.id },
+      const tenant = await db.tenant.findUnique({
+        where: { userId: user.id },
         select: { id: true, tier: true },
       });
 
