@@ -12,8 +12,9 @@ Always bun. Never npm/yarn/pnpm.
 
 ## CRITICAL — Database
 Never call prisma directly. Always use `bun run db:*` scripts.
-Scripts use dotenv-cli to load .env.local automatically.
-NOTE: dotenv-cli is broken on this machine (Python 3.11 removed). Use `bun --env-file=.env.local` for one-off scripts.
+dotenv-cli BROKEN (Python 3.11 removed from Homebrew) — scripts fail with env from wrong source.
+For db:push use: `DATABASE_URL="<neon-pooler-url>" bunx prisma db push`
+For one-off scripts: `NODE_ENV=development bun --env-file=.env.local run <script>`
 
 ## Stack
 Runtime: Bun | Frontend: Next.js 15 App Router (NO src/ folder)
@@ -45,7 +46,8 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
-Week 5: IN PROGRESS — env hardening + OKBET pilot config + training pipeline done; QStash cron registration next
+Week 5: IN PROGRESS — env hardening + OKBET pilot config + training pipeline + QStash cron DONE
+Week 5 remaining: Chrome extension E2E, knowledge embedding on chunk create, cache page real stats, settings webhook test endpoint
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -94,7 +96,11 @@ Flow: convert → finetune (QLoRA/Unsloth) → evaluate (BLEU ≥ 0.65) → prom
 Replay buffer: 70% old examples + 30% new — prevents catastrophic forgetting
 Triggered by: `/api/training/weekly-trigger` in inference (QStash webhook, Sunday 02:00 UTC)
 QStash cron: `bun run cron:register` (apps/web) — idempotent, registers Sunday 02:00 UTC schedule
-CRITICAL: Fill `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `DATABASE_URL` in `apps/inference/.env`
+QStash cron ID: `scd_774mX3PfErmkHCEDcjedjkG7Vs4s` — fires Sunday 02:00 UTC → ngrok:8000
+CRITICAL: ngrok must tunnel port 8000 (not 3000) when QStash fires, or update cron destination to Railway URL
+inference/.env already has QSTASH keys + DATABASE_URL filled from .env.local values
+Idempotency guard: trigger returns 409-style skip if any run in QUEUED/RUNNING/TRAINING/EVALUATING
+Security: QStash sig = sole auth for /api/training/weekly-trigger (no Bearer header sent)
 
 ## OKBET Tenant Setup
 Script: `bun run setup:okbet` (apps/web)
