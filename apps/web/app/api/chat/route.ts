@@ -1,8 +1,6 @@
 import { auth } from "@/lib/auth";
+import { env } from "@/lib/env";
 import { NextResponse } from "next/server";
-
-const INFERENCE_URL = process.env.INFERENCE_SERVICE_URL ?? "http://localhost:8000";
-const INFERENCE_SECRET = process.env.INFERENCE_API_SECRET ?? "";
 
 interface InferRequest {
   query: string;
@@ -35,24 +33,40 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
 
+  const clientIp =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown";
+
   const payload = {
     query: body.query.trim(),
     tenant_id: session.user.tenantId,
     session_id: body.session_id ?? null,
   };
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
   let inferRes: Response;
   try {
-    inferRes = await fetch(`${INFERENCE_URL}/api/infer`, {
+    inferRes = await fetch(`${env.INFERENCE_SERVICE_URL}/api/infer`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(INFERENCE_SECRET ? { "x-api-secret": INFERENCE_SECRET } : {}),
+        "Authorization": `Bearer ${env.INFERENCE_API_SECRET}`,
+        "X-Client-IP": clientIp,
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
-  } catch {
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof Error && err.name === "AbortError") {
+      return NextResponse.json({ error: "Inference service timed out" }, { status: 504 });
+    }
     return NextResponse.json({ error: "Inference service unavailable" }, { status: 503 });
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!inferRes.ok) {

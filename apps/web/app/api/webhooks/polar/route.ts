@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
 import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import type { Tier } from "@prisma/client";
 
 export const runtime = "nodejs";
 
 const PRODUCT_TIER_MAP: Record<string, Tier> = {
-  [process.env.POLAR_PRODUCT_ID_STARTER ?? ""]: "STARTER",
-  [process.env.POLAR_PRODUCT_ID_GROWTH ?? ""]: "GROWTH",
-  [process.env.POLAR_PRODUCT_ID_ENTERPRISE ?? ""]: "ENTERPRISE",
+  [env.POLAR_PRODUCT_ID_STARTER]: "STARTER",
+  [env.POLAR_PRODUCT_ID_GROWTH]: "GROWTH",
+  [env.POLAR_PRODUCT_ID_ENTERPRISE]: "ENTERPRISE",
 };
 
 function tierFromProductId(productId: string | undefined): Tier {
@@ -17,10 +18,7 @@ function tierFromProductId(productId: string | undefined): Tier {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  const webhookSecret = process.env.POLAR_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
-  }
+  const webhookSecret = env.POLAR_WEBHOOK_SECRET;
 
   const rawBody = await req.text();
   const headers: Record<string, string> = {};

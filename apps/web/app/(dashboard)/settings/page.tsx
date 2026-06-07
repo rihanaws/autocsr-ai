@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
+import { env } from '@/lib/env'
 import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { ApiKeySection, InferenceEndpointSection, DangerZoneSection } from '@/components/dashboard/settings-client'
 
@@ -48,7 +49,7 @@ export default async function SettingsPage() {
   if (!tenant) redirect('/login')
 
   const tierColor = TIER_COLORS[tenant.tier] ?? TIER_COLORS.FREE
-  const inferenceUrl = process.env.INFERENCE_SERVICE_URL ?? 'http://localhost:8000'
+  const inferenceUrl = env.INFERENCE_SERVICE_URL
 
   return (
     <>

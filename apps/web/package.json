@@ -12,7 +12,8 @@
     "db:generate": "dotenv -e .env.local -- prisma generate",
     "db:studio": "dotenv -e .env.local -- prisma studio",
     "db:migrate": "dotenv -e .env.local -- prisma migrate dev",
-    "email:dev": "email dev --dir emails --port 3001"
+    "email:dev": "email dev --dir emails --port 3001",
+    "setup:okbet": "bun --env-file=.env.local run scripts/setup-okbet-tenant.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.2",

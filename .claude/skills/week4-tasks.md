@@ -14,8 +14,12 @@
 
 ### Priority 1 — Must finish before OKBET pilot
 - [x] Polar sandbox: wire real product IDs + test checkout flow (2026-06-05)
-- [ ] Welcome email (Resend + React Email)
+- [x] Welcome email (Resend + React Email) (2026-06-05)
 - [x] app/global-error.tsx — create required error boundary
+- [x] lib/env.ts — Zod runtime validation, fail-fast on missing vars (2026-06-08)
+- [x] Inference: HTTPBearer auth + OKBET IP allowlist + XFF spoofing fix (2026-06-08)
+- [x] chat/route.ts: env.ts, X-Client-IP forwarding, 10s timeout/504 (2026-06-08)
+- [x] scripts/setup-okbet-tenant.ts — idempotent OKBET tier promotion (2026-06-08)
 
 ### Priority 2 — Core pipeline
 - [ ] Training pipeline: pipeline/finetune.py (Unsloth QLoRA)

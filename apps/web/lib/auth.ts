@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
 import { resend } from "@/lib/resend";
+import { env } from "@/lib/env";
 import WelcomeEmail from "@/emails/welcome";
 import type { Tier } from "@prisma/client";
 
@@ -24,11 +25,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(db),
   providers: [
     Google({
-      clientId: process.env.AUTH_GOOGLE_ID!,
-      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+      clientId: env.AUTH_GOOGLE_ID,
+      clientSecret: env.AUTH_GOOGLE_SECRET,
     }),
     Resend({
-      apiKey: process.env.RESEND_API_KEY!,
+      apiKey: env.RESEND_API_KEY,
       from: "AutoCSR <noreply@techsci.co>",
     }),
   ],
@@ -46,7 +47,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       });
 
       try {
-        const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`;
+        const dashboardUrl = `${env.NEXT_PUBLIC_APP_URL}/dashboard`;
         await resend.emails.send({
           from: "AutoCSR <noreply@techsci.co>",
           to: user.email,
@@ -77,5 +78,5 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/login",
   },
   session: { strategy: "database" },
-  secret: process.env.AUTH_SECRET,
+  secret: env.AUTH_SECRET,
 });

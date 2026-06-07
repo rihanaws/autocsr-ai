@@ -2,8 +2,9 @@ import os
 import time
 from typing import Optional
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from auditor.judge import schedule_audit
@@ -23,11 +24,39 @@ app.add_middleware(
 )
 
 INFERENCE_API_SECRET = os.getenv("INFERENCE_API_SECRET", "")
+# Fail-fast at startup — never run without a secret
+if not INFERENCE_API_SECRET:
+    raise RuntimeError("INFERENCE_API_SECRET env var is required and must be non-empty")
+
+security = HTTPBearer()
+
+# OKBET IP allowlist — "153.53.81" is a /24 prefix; checked via startswith.
+OKBET_ALLOWED_IPS: set[str] = {
+    "153.53.81",
+    "89.117.176.115",
+    "103.170.173.26",
+}
+
+# Number of trusted reverse-proxy hops in front of this service (Railway = 1).
+# We read the Nth-from-right entry in X-Forwarded-For to skip spoofable left entries.
+TRUSTED_PROXY_HOPS: int = int(os.getenv("TRUSTED_PROXY_HOPS", "1"))
 
 
-def verify_secret(x_api_secret: Optional[str]) -> None:
-    if INFERENCE_API_SECRET and x_api_secret != INFERENCE_API_SECRET:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def get_real_client_ip(request: Request) -> str:
+    """
+    Returns the real client IP by reading TRUSTED_PROXY_HOPS entries from the
+    right of X-Forwarded-For (the portion appended by trusted infrastructure).
+    Falls back to request.client.host when the header is absent.
+
+    Never trusts the leftmost XFF entry directly — that field is client-controlled.
+    """
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        entries = [e.strip() for e in forwarded.split(",")]
+        # Take the entry added by our outermost trusted proxy
+        idx = max(0, len(entries) - TRUSTED_PROXY_HOPS)
+        return entries[idx]
+    return request.client.host if request.client else ""
 
 
 class InferRequest(BaseModel):
@@ -53,9 +82,18 @@ async def health():
 @app.post("/api/infer", response_model=InferResponse)
 async def infer(
     body: InferRequest,
-    x_api_secret: Optional[str] = Header(None),
-):
-    verify_secret(x_api_secret)
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> InferResponse:
+    if INFERENCE_API_SECRET and credentials.credentials != INFERENCE_API_SECRET:
+        raise HTTPException(status_code=401, detail="Invalid API secret")
+
+    if body.tenant_id == "okbet":
+        ip = get_real_client_ip(request)
+        allowed = any(ip == allowed_ip or ip.startswith(allowed_ip + ".") for allowed_ip in OKBET_ALLOWED_IPS)
+        if not allowed:
+            raise HTTPException(status_code=403, detail=f"IP {ip} not authorized for this tenant")
+
     started = time.monotonic()
 
     # Input guard: scope filter + PII redaction

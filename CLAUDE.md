@@ -13,6 +13,7 @@ Always bun. Never npm/yarn/pnpm.
 ## CRITICAL — Database
 Never call prisma directly. Always use `bun run db:*` scripts.
 Scripts use dotenv-cli to load .env.local automatically.
+NOTE: dotenv-cli is broken on this machine (Python 3.11 removed). Use `bun --env-file=.env.local` for one-off scripts.
 
 ## Stack
 Runtime: Bun | Frontend: Next.js 15 App Router (NO src/ folder)
@@ -43,8 +44,8 @@ green:#22c55e | amber:#f59e0b | red:#ef4444
 font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 
 ## Build Status
-Weeks 1–3: COMPLETE
-Week 4: IN PROGRESS — read .claude/skills/week4-tasks.md
+Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
+Week 5: IN PROGRESS — env hardening + OKBET pilot config done; training pipeline next
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -75,6 +76,22 @@ Static URL: `https://foziest-prius-maranda.ngrok-free.dev` → localhost:3000
 Config: `~/Library/Application Support/ngrok/ngrok.yml`
 Start: `ngrok http --url=foziest-prius-maranda.ngrok-free.dev 3000`
 
+## Env Validation — lib/env.ts (wired 2026-06-08)
+All process.env.X replaced with typed `env.X` from `lib/env.ts` (Zod schema).
+Throws at startup if any required var is missing or malformed.
+Add new vars to BOTH `lib/env.ts` schema AND `.env.local`.
+
+## Inference Security (wired 2026-06-08)
+Auth: `Authorization: Bearer <INFERENCE_API_SECRET>` — fails-closed if secret missing.
+OKBET IP allowlist: reads LAST XFF entry (Railway hop), not first (spoofable).
+`TRUSTED_PROXY_HOPS=1` env var in `apps/inference/.env` (default: 1).
+Secret shared: same value in `apps/web/.env.local` and `apps/inference/.env`.
+
+## OKBET Tenant Setup
+Script: `bun run setup:okbet` (apps/web)
+Run after OKBET admin signs up at /signup — promotes their auto-provisioned tenant to GROWTH tier.
+Tenant must exist first (created on first login). Neon MCP can verify: SELECT * FROM "Tenant".
+
 ## Commands
 bun run dev           # Next.js turbopack
 bun run typecheck     # tsc --noEmit — run after every TS change
@@ -82,5 +99,6 @@ bun run db:push       # Prisma schema → Neon
 bun run db:generate   # regenerate Prisma client
 bun run db:studio     # Prisma Studio GUI
 bun run email:dev     # React Email preview at localhost:3001
+bun run setup:okbet   # Promote OKBET tenant to GROWTH (run after first login)
 cd packages/extension && bun run build
 cd apps/inference && uvicorn main:app --reload --port 8000
