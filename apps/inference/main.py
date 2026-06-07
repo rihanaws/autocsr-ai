@@ -1,7 +1,13 @@
+import hashlib
+import hmac
 import os
+import subprocess
 import time
+import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
+import asyncpg
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -24,9 +30,16 @@ app.add_middleware(
 )
 
 INFERENCE_API_SECRET = os.getenv("INFERENCE_API_SECRET", "")
-# Fail-fast at startup — never run without a secret
 if not INFERENCE_API_SECRET:
     raise RuntimeError("INFERENCE_API_SECRET env var is required and must be non-empty")
+
+QSTASH_CURRENT_SIGNING_KEY = os.getenv("QSTASH_CURRENT_SIGNING_KEY", "")
+QSTASH_NEXT_SIGNING_KEY    = os.getenv("QSTASH_NEXT_SIGNING_KEY", "")
+DATABASE_URL               = os.getenv("DATABASE_URL", "")
+if not QSTASH_CURRENT_SIGNING_KEY or not QSTASH_NEXT_SIGNING_KEY:
+    raise RuntimeError("QSTASH_CURRENT_SIGNING_KEY and QSTASH_NEXT_SIGNING_KEY are required")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is required")
 
 security = HTTPBearer()
 
@@ -177,9 +190,43 @@ async def infer(
     )
 
 
+def _verify_qstash_signature(body: bytes, signature: str) -> bool:
+    """
+    QStash signs with the current key; falls back to next key during rotation.
+    Signature header format: "Bearer <hex_digest>".
+    """
+    received = signature.removeprefix("Bearer ")
+    for key in (QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY):
+        expected = hmac.new(key.encode(), body, hashlib.sha256).hexdigest()
+        if hmac.compare_digest(expected, received):
+            return True
+    return False
+
+
 @app.post("/api/training/weekly-trigger")
 async def weekly_training_trigger(
+    request: Request,
     x_qstash_signature: Optional[str] = Header(None),
 ):
-    # TODO: verify QStash signature + trigger training loop in Week 4
-    return {"status": "received", "note": "training scheduler stub"}
+    body_bytes = await request.body()
+    if not x_qstash_signature or not _verify_qstash_signature(body_bytes, x_qstash_signature):
+        raise HTTPException(status_code=401, detail="Invalid QStash signature")
+
+    training_run_id = str(uuid.uuid4())
+
+    async with asyncpg.create_pool(DATABASE_URL) as pool:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                'INSERT INTO "TrainingRun" (id, status, "createdAt") VALUES ($1, $2, $3)',
+                training_run_id,
+                "QUEUED",
+                datetime.now(timezone.utc),
+            )
+
+    subprocess.Popen(
+        ["python", "pipeline/run_pipeline.py", training_run_id, "general"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    return {"status": "queued", "training_run_id": training_run_id}

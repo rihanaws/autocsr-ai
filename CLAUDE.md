@@ -45,7 +45,7 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
-Week 5: IN PROGRESS — env hardening + OKBET pilot config done; training pipeline next
+Week 5: IN PROGRESS — env hardening + OKBET pilot config + training pipeline done; QStash cron registration next
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -87,6 +87,15 @@ OKBET IP allowlist: reads LAST XFF entry (Railway hop), not first (spoofable).
 `TRUSTED_PROXY_HOPS=1` env var in `apps/inference/.env` (default: 1).
 Secret shared: same value in `apps/web/.env.local` and `apps/inference/.env`.
 
+## Training Pipeline (wired 2026-06-08)
+Location: `pipeline/` — standalone Python package, run inside inference VM
+Files: `config.py` | `convert.py` | `finetune.py` | `evaluate.py` | `promote.py` | `run_pipeline.py`
+Flow: convert → finetune (QLoRA/Unsloth) → evaluate (BLEU ≥ 0.65) → promote TrainingRun in Neon
+Replay buffer: 70% old examples + 30% new — prevents catastrophic forgetting
+Triggered by: `/api/training/weekly-trigger` in inference (QStash webhook, Sunday 02:00 UTC)
+QStash cron: `bun run cron:register` (apps/web) — idempotent, registers Sunday 02:00 UTC schedule
+CRITICAL: Fill `QSTASH_CURRENT_SIGNING_KEY`, `QSTASH_NEXT_SIGNING_KEY`, `DATABASE_URL` in `apps/inference/.env`
+
 ## OKBET Tenant Setup
 Script: `bun run setup:okbet` (apps/web)
 Run after OKBET admin signs up at /signup — promotes their auto-provisioned tenant to GROWTH tier.
@@ -100,5 +109,7 @@ bun run db:generate   # regenerate Prisma client
 bun run db:studio     # Prisma Studio GUI
 bun run email:dev     # React Email preview at localhost:3001
 bun run setup:okbet   # Promote OKBET tenant to GROWTH (run after first login)
+bun run cron:register # Register QStash weekly training cron (idempotent)
 cd packages/extension && bun run build
 cd apps/inference && uvicorn main:app --reload --port 8000
+cd pipeline && python run_pipeline.py <run_id> [agent_type]  # Manual pipeline trigger
