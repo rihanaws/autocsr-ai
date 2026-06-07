@@ -203,6 +203,9 @@ def _verify_qstash_signature(body: bytes, signature: str) -> bool:
     return False
 
 
+ACTIVE_TRAINING_STATUSES = ("QUEUED", "RUNNING", "TRAINING", "EVALUATING")
+
+
 @app.post("/api/training/weekly-trigger")
 async def weekly_training_trigger(
     request: Request,
@@ -212,10 +215,17 @@ async def weekly_training_trigger(
     if not x_qstash_signature or not _verify_qstash_signature(body_bytes, x_qstash_signature):
         raise HTTPException(status_code=401, detail="Invalid QStash signature")
 
-    training_run_id = str(uuid.uuid4())
-
     async with asyncpg.create_pool(DATABASE_URL) as pool:
         async with pool.acquire() as conn:
+            # Idempotency guard — refuse to start if a run is already active
+            active = await conn.fetchval(
+                'SELECT id FROM "TrainingRun" WHERE status = ANY($1::text[]) LIMIT 1',
+                list(ACTIVE_TRAINING_STATUSES),
+            )
+            if active:
+                return {"status": "skipped", "reason": "training run already active", "active_run_id": active}
+
+            training_run_id = str(uuid.uuid4())
             await conn.execute(
                 'INSERT INTO "TrainingRun" (id, status, "createdAt") VALUES ($1, $2, $3)',
                 training_run_id,

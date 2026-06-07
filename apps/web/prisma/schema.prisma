@@ -155,14 +155,16 @@ enum ReviewStatus {
 
 model TrainingRun {
   id               String         @id @default(cuid())
-  tenantId         String
-  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId         String?
+  tenant           Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   status           TrainingStatus @default(QUEUED)
   examplesUsed     Int?
-  baseModelVersion String
+  baseModelVersion String?
+  adapterPath      String?
   adapterVersion   String?
   evalAccuracy     Float?
   evalDelta        Float?
+  error            String?
   promoted         Boolean        @default(false)
   startedAt        DateTime?
   completedAt      DateTime?
@@ -172,6 +174,7 @@ model TrainingRun {
 enum TrainingStatus {
   QUEUED
   RUNNING
+  TRAINING
   EVALUATING
   PROMOTED
   REJECTED
@@ -179,15 +182,22 @@ enum TrainingStatus {
 }
 
 model TrainingExample {
-  id           String    @id @default(cuid())
+  id           String                @id @default(cuid())
   tenantId     String
-  queryText    String
-  responseText String
+  query        String
+  response     String
   agentType    AgentType
   qualityScore Float
+  status       TrainingExampleStatus @default(PENDING)
   sessionId    String?
-  used         Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  used         Boolean               @default(false)
+  createdAt    DateTime              @default(now())
 
-  @@index([tenantId, used, qualityScore])
+  @@index([tenantId, status, qualityScore])
+}
+
+enum TrainingExampleStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
