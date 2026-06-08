@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server'
-import type { KnowledgeDocument } from '@/types/knowledge'
+import { auth } from '@/lib/auth'
+import { db } from '@/lib/db'
 
-export async function GET(): Promise<NextResponse<KnowledgeDocument[]>> {
-  // TODO Week 5: query Appwrite Storage + Upstash Vector for tenant documents
-  return NextResponse.json([])
+export async function GET() {
+  const session = await auth()
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const tenantId = session.user.tenantId
+
+  const docs = await db.knowledgeDocument.findMany({
+    where:   { tenantId },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return NextResponse.json(docs)
 }

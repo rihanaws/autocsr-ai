@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import random
+import sys
 from pathlib import Path
 
 import asyncpg
@@ -23,13 +24,29 @@ SYSTEM_PROMPT = (
 )
 
 
-async def fetch_examples(conn: asyncpg.Connection, agent_type: str | None = None) -> list:
-    q = 'SELECT id, "agentType", query, response, "createdAt" FROM "TrainingExample" WHERE status = $1'
+async def fetch_examples(
+    conn: asyncpg.Connection,
+    tenant_id: str | None = None,
+    agent_type: str | None = None,
+) -> list:
+    q = '''
+        SELECT id, "tenantId", "agentType", query, response, "createdAt"
+        FROM "TrainingExample"
+        WHERE status = $1
+    '''
     args: list = ["APPROVED"]
-    if agent_type:
+    if tenant_id:
+        q += ' AND "tenantId" = $2'
+        args.append(tenant_id)
+        if agent_type:
+            q += ' AND "agentType" = $3'
+            args.append(agent_type)
+    elif agent_type:
         q += ' AND "agentType" = $2'
         args.append(agent_type)
-    return await conn.fetch(q, *args)
+    rows = await conn.fetch(q, *args)
+    # Sort by createdAt ASC — temporal split requires sorted order
+    return sorted(rows, key=lambda r: r["createdAt"])
 
 
 def to_jsonl_row(row: asyncpg.Record) -> dict:
@@ -51,24 +68,24 @@ def _write_jsonl(path: str, rows: list) -> None:
             f.write(json.dumps(row) + "\n")
 
 
-async def main() -> bool:
+async def main(tenant_id: str | None = None, agent_type: str | None = None) -> bool:
     conn = await asyncpg.connect(os.environ["DATABASE_URL"])
     try:
-        rows = await fetch_examples(conn)
+        rows = await fetch_examples(conn, tenant_id=tenant_id, agent_type=agent_type)
         if not rows:
             print("⚠️  No APPROVED examples found — aborting convert")
             return False
 
+        # rows are sorted by createdAt ASC
         examples = [to_jsonl_row(r) for r in rows]
-        random.shuffle(examples)
 
-        # Temporal split: newest 30% = new, rest = replay buffer
-        split_idx = int(len(examples) * (1 - CONFIG.replay_buffer_ratio))
-        new_examples    = examples[:split_idx]
-        replay_examples = examples[split_idx:]
+        # Temporal split: oldest 70% = replay buffer, newest 30% = new data
+        split_idx       = int(len(examples) * CONFIG.replay_buffer_ratio)
+        replay_examples = examples[:split_idx]
+        new_examples    = examples[split_idx:]
 
-        # Mix: 30% new + 70% replay, shuffle
-        train_set = new_examples + replay_examples
+        # Mix then shuffle — preserves temporal intent, removes ordering bias
+        train_set = replay_examples + new_examples
         random.shuffle(train_set)
 
         # Hold out 10% for eval
@@ -87,5 +104,7 @@ async def main() -> bool:
 
 
 if __name__ == "__main__":
-    ok = asyncio.run(main())
-    exit(0 if ok else 1)
+    _tenant_id  = os.getenv("PIPELINE_TENANT_ID") or (sys.argv[2] if len(sys.argv) > 2 else None)
+    _agent_type = sys.argv[1] if len(sys.argv) > 1 else None
+    ok = asyncio.run(main(tenant_id=_tenant_id, agent_type=_agent_type))
+    sys.exit(0 if ok else 1)

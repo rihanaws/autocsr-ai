@@ -46,11 +46,9 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
-Week 5: IN PROGRESS — env hardening + OKBET pilot config + training pipeline + QStash cron DONE
-Week 5 dashboard pages DONE: knowledge upload dialog + doc stats, cache clear + similarity threshold editor, settings tabbed layout (API Access | Tenant | Danger Zone) + authorized IPs
-New API stubs (all Week 5 TODO wired): /api/knowledge/documents|upload|[id], /api/cache/entries|clear|threshold, /api/settings/api-key|authorized-ips|danger-zone/*
-New types: apps/web/types/knowledge.ts (KnowledgeDocument)
-Week 5 remaining: Chrome extension E2E, knowledge embedding on chunk create, cache page real stats (Upstash Vector), settings authorized IPs persistence to DB
+Week 5: IN PROGRESS — security + correctness pass DONE (2026-06-08)
+Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes
+Week 5 remaining: Chrome extension E2E, knowledge embedding on chunk create, cache page real stats (Upstash Vector)
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -74,7 +72,8 @@ CRITICAL: Polar sends tenantId as `customer.externalId`, NOT `customerId` — ma
 - Pooler (used by app): `ep-proud-sound-aoyz34le-pooler.c-2.ap-southeast-1.aws.neon.tech` — has inference tables only (cache_entries, transactions, etc.)
 - Non-pooler (auth/app tables): `ep-proud-sound-aoyz34le.c-2.ap-southeast-1.aws.neon.tech` — has Tenant, User, Session, etc.
 - App DB queries work because Prisma uses pooler with ?channel_binding=require; psql direct queries need non-pooler URL
-- Tables: Account, KnowledgeChunk, QueryEvent, ReviewItem, Session, Tenant, TrainingExample, TrainingRun, User, VerificationToken
+- Tables: Account, KnowledgeChunk, KnowledgeDocument, QueryEvent, ReviewItem, Session, Tenant, TrainingExample, TrainingRun, User, VerificationToken
+- Tenant model additions (2026-06-08): cacheThreshold Float @default(0.92), authorizedIps String[] @default([])
 
 ## ngrok (local dev tunneling)
 Static URL: `https://foziest-prius-maranda.ngrok-free.dev` → localhost:3000
@@ -92,11 +91,11 @@ OKBET IP allowlist: reads LAST XFF entry (Railway hop), not first (spoofable).
 `TRUSTED_PROXY_HOPS=1` env var in `apps/inference/.env` (default: 1).
 Secret shared: same value in `apps/web/.env.local` and `apps/inference/.env`.
 
-## Training Pipeline (wired 2026-06-08)
+## Training Pipeline (wired 2026-06-08, corrected 2026-06-08)
 Location: `pipeline/` — standalone Python package, run inside inference VM
 Files: `config.py` | `convert.py` | `finetune.py` | `evaluate.py` | `promote.py` | `run_pipeline.py`
 Flow: convert → finetune (QLoRA/Unsloth) → evaluate (BLEU ≥ 0.65) → promote TrainingRun in Neon
-Replay buffer: 70% old examples + 30% new — prevents catastrophic forgetting
+Replay buffer: 70% old examples + 30% new — sorted by createdAt ASC, THEN split (temporal correctness)
 Triggered by: `/api/training/weekly-trigger` in inference (QStash webhook, Sunday 02:00 UTC)
 QStash cron: `bun run cron:register` (apps/web) — idempotent, registers Sunday 02:00 UTC schedule
 QStash cron ID: `scd_774mX3PfErmkHCEDcjedjkG7Vs4s` — fires Sunday 02:00 UTC → ngrok:8000
@@ -104,6 +103,24 @@ CRITICAL: ngrok must tunnel port 8000 (not 3000) when QStash fires, or update cr
 inference/.env already has QSTASH keys + DATABASE_URL filled from .env.local values
 Idempotency guard: trigger returns 409-style skip if any run in QUEUED/RUNNING/TRAINING/EVALUATING
 Security: QStash sig = sole auth for /api/training/weekly-trigger (no Bearer header sent)
+PILOT_TENANT_ID env var: set in inference/.env to OKBET tenant DB id — TrainingRun rows tagged with it
+PIPELINE_DIR env var: set in inference/.env to absolute path of pipeline/ dir (default: relative to main.py)
+convert.py: accepts PIPELINE_TENANT_ID env var to scope examples to one tenant
+run_pipeline.py: fills all TrainingRun fields (examplesUsed, promoted, baseModelVersion, adapterVersion)
+
+## API Auth Pattern (enforced 2026-06-08)
+ALL API routes must use this guard — no exceptions:
+  const session = await auth()
+  if (!session?.user?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const tenantId = session.user.tenantId
+NEVER use redirect() in API routes — return 401 JSON instead.
+All knowledge/cache/settings routes now auth-guarded and DB-backed (no more stubs).
+
+## QueryEvent Persistence (wired 2026-06-08)
+create_query_event() in apps/inference/main.py writes to "QueryEvent" table for EVERY inference call.
+Both cache-hit and full-inference paths write rows — dashboard analytics now have real data.
+Shared asyncpg pool (_db_pool) reused across requests — not recreated per call.
+query_event_id passed to schedule_audit() → judge.py links ReviewItem back to QueryEvent row.
 
 ## OKBET Tenant Setup
 Script: `bun run setup:okbet` (apps/web)

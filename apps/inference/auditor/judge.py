@@ -134,8 +134,8 @@ async def audit_response(
             finally:
                 await pool.close()
 
-    except Exception:
-        pass  # Auditor must never crash the main response path
+    except Exception as e:
+        print(f"[auditor] failed: {type(e).__name__}: {e}", flush=True)
 
 
 def schedule_audit(

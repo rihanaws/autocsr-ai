@@ -78,5 +78,5 @@ def write(query: str, tenant_id: str, response_payload: dict) -> None:
                 }
             ]
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[semantic_cache] write failed: {type(e).__name__}: {e}", flush=True)

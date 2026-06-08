@@ -54,6 +54,13 @@ OKBET_ALLOWED_IPS: set[str] = {
 # We read the Nth-from-right entry in X-Forwarded-For to skip spoofable left entries.
 TRUSTED_PROXY_HOPS: int = int(os.getenv("TRUSTED_PROXY_HOPS", "1"))
 
+PILOT_TENANT_ID: str = os.getenv("PILOT_TENANT_ID", "")
+
+PIPELINE_DIR: str = os.getenv(
+    "PIPELINE_DIR",
+    os.path.join(os.path.dirname(__file__), "..", "..", "pipeline"),
+)
+
 
 def get_real_client_ip(request: Request) -> str:
     """
@@ -85,6 +92,64 @@ class InferResponse(BaseModel):
     confidence: float
     resolution_ms: int
     flagged: bool
+
+
+_db_pool: asyncpg.Pool | None = None
+
+
+async def _get_pool() -> asyncpg.Pool:
+    global _db_pool
+    if _db_pool is None:
+        _db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
+    return _db_pool
+
+
+async def create_query_event(
+    pool: asyncpg.Pool,
+    *,
+    tenant_id: str,
+    query_text: str,
+    response_text: str,
+    agent_type: str,
+    cache_hit: bool,
+    confidence: float,
+    resolution_ms: int,
+    flagged: bool,
+    model_version: str = "hermes-3-llama-3.1-8b",
+) -> str:
+    """Insert a QueryEvent row. Returns the new event id. Never raises."""
+    event_id   = str(uuid.uuid4())
+    query_hash = hashlib.sha256(
+        f"{tenant_id}:{query_text.lower().strip()}".encode()
+    ).hexdigest()[:16]
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO "QueryEvent" (
+                    id, "tenantId", "queryHash", "queryText",
+                    "responseText", "agentType", "cacheHit",
+                    "resolved", "confidenceScore", "resolutionMs",
+                    "modelVersion", "flaggedForReview", "createdAt"
+                ) VALUES ($1,$2,$3,$4,$5,$6::\"AgentType\",$7,$8,$9,$10,$11,$12,NOW())
+                """,
+                event_id,
+                tenant_id,
+                query_hash,
+                query_text,
+                response_text,
+                agent_type.upper(),
+                cache_hit,
+                not flagged,
+                confidence,
+                resolution_ms,
+                model_version,
+                flagged,
+            )
+    except Exception as e:
+        print(f"[query_event] write failed: {type(e).__name__}: {e}", flush=True)
+        return ""
+    return event_id
 
 
 @app.get("/health")
@@ -123,15 +188,30 @@ async def infer(
 
     clean_query = guard_result["query"]
 
-    # Semantic cache lookup (use redacted query for cache key consistency)
+    pool = await _get_pool()
+
+    # Semantic cache lookup
     cached = lookup(clean_query, body.tenant_id)
     if cached:
+        resolution_ms = int((time.monotonic() - started) * 1000)
+        await create_query_event(
+            pool,
+            tenant_id     = body.tenant_id,
+            query_text    = clean_query,
+            response_text = cached["response"],
+            agent_type    = cached.get("agent_type", "GENERAL"),
+            cache_hit     = True,
+            confidence    = cached.get("confidence", 1.0),
+            resolution_ms = resolution_ms,
+            flagged       = cached.get("flagged", False),
+            model_version = "cache",
+        )
         return InferResponse(
             response=cached["response"],
             agent_type=cached["agent_type"],
             cache_hit=True,
             confidence=cached["confidence"],
-            resolution_ms=int((time.monotonic() - started) * 1000),
+            resolution_ms=resolution_ms,
             flagged=cached.get("flagged", False),
         )
 
@@ -172,12 +252,25 @@ async def infer(
     # Cache write — fire and forget
     write(clean_query, body.tenant_id, payload)
 
+    query_event_id = await create_query_event(
+        pool,
+        tenant_id     = body.tenant_id,
+        query_text    = clean_query,
+        response_text = guard_out["response"],
+        agent_type    = result["agent_type"],
+        cache_hit     = False,
+        confidence    = guard_out["confidence"],
+        resolution_ms = resolution_ms,
+        flagged       = final_flagged,
+    )
+
     # Async auditor — fire and forget, never blocks response
     schedule_audit(
-        tenant_id=body.tenant_id,
-        query=clean_query,
-        response=guard_out["response"],
-        agent_type=result["agent_type"],
+        tenant_id      = body.tenant_id,
+        query          = clean_query,
+        response       = guard_out["response"],
+        agent_type     = result["agent_type"],
+        query_event_id = query_event_id,
     )
 
     return InferResponse(
@@ -227,14 +320,20 @@ async def weekly_training_trigger(
 
             training_run_id = str(uuid.uuid4())
             await conn.execute(
-                'INSERT INTO "TrainingRun" (id, status, "createdAt") VALUES ($1, $2, $3)',
+                '''
+                INSERT INTO "TrainingRun" (id, status, "tenantId", "createdAt")
+                VALUES ($1, $2, $3, NOW())
+                ''',
                 training_run_id,
                 "QUEUED",
-                datetime.now(timezone.utc),
+                PILOT_TENANT_ID or "global",
             )
 
+    pipeline_dir = os.path.realpath(PIPELINE_DIR)
     subprocess.Popen(
-        ["python", "pipeline/run_pipeline.py", training_run_id, "general"],
+        ["python", os.path.join(pipeline_dir, "run_pipeline.py"), training_run_id, "general"],
+        cwd=pipeline_dir,
+        env={**os.environ, "PIPELINE_TENANT_ID": PILOT_TENANT_ID},
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

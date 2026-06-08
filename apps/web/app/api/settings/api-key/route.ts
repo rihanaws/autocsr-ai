@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
-import { redirect } from 'next/navigation'
 
 export async function GET() {
   const session = await auth()
-  if (!session?.user?.tenantId) redirect('/login')
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  const tenantId = session.user.tenantId
 
   const tenant = await db.tenant.findUnique({
-    where: { id: session.user.tenantId },
+    where:  { id: tenantId },
     select: { apiKey: true },
   })
 
