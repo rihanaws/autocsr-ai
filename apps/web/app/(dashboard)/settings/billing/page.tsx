@@ -34,13 +34,13 @@ const PLANS: Array<{
   {
     tier: 'STARTER',
     label: 'Starter',
-    price: '$49/mo',
+    price: '$149/mo',
     features: { queries: '10,000 / mo', agents: '5 agents', finetune: 'Monthly', auditor: 'Full', support: 'Email' },
   },
   {
     tier: 'GROWTH',
     label: 'Growth',
-    price: '$199/mo',
+    price: '$499/mo',
     features: { queries: '50,000 / mo', agents: 'Unlimited', finetune: 'Weekly', auditor: 'Full + Queue', support: 'Priority' },
   },
   {

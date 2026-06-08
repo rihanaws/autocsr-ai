@@ -100,7 +100,7 @@ export function HeroSection() {
                 fontFamily: 'var(--font-body)',
               }}
             >
-              Cut your betting platform's CSR cost by 61%.
+              Cut your betting platform&apos;s CSR cost by 61%.
               Deployed in 30 days. No retrenchment overnight.
             </p>
 

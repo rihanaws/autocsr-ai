@@ -12,6 +12,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; border: string; 
   QUEUED:     { bg: 'rgba(100,100,120,0.1)',  color: '#606075', border: 'rgba(100,100,120,0.15)', label: 'QUEUED'   },
   EVALUATING: { bg: 'rgba(79,70,229,0.08)',   color: '#a5a0ff', border: 'rgba(79,70,229,0.2)',   label: 'EVALUATING' },
   FAILED:     { bg: 'rgba(239,68,68,0.08)',   color: '#f87171', border: 'rgba(239,68,68,0.15)',  label: 'FAILED'     },
+  TRAINING:   { bg: 'rgba(99,102,241,0.1)',  color: '#818cf8', border: 'rgba(99,102,241,0.2)',  label: 'TRAINING'   },
 }
 
 export default async function TrainingPage() {

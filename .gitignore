@@ -55,6 +55,21 @@ yarn-debug.log*
 # Playwright MCP
 .playwright-mcp/
 
+# Local AI tool directories
+.codex/
+.serena/
+
 # Vercel
 .vercel/
-apps/web/tsconfig.tsbuildinfo
+
+# TypeScript build info
+*.tsbuildinfo
+
+# macOS (recursive)
+**/.DS_Store
+
+# Python (recursive)
+**/__pycache__/
+**/*.pyc
+pipeline/data/
+pipeline/models/

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const TABS = ['API Access', 'Tenant', 'Danger Zone'] as const
@@ -30,6 +30,12 @@ function ApiAccessTab({ apiKey }: { apiKey: string }) {
   const [newIp, setNewIp] = useState('')
   const [addingIp, setAddingIp] = useState(false)
 
+  useEffect(() => {
+    fetch('/api/settings/authorized-ips')
+      .then(r => r.ok ? r.json() : { ips: [] })
+      .then(d => setIps(d.ips ?? []))
+  }, [])
+
   function copyKey() {
     navigator.clipboard.writeText(apiKey)
     setCopied(true)
@@ -39,19 +45,23 @@ function ApiAccessTab({ apiKey }: { apiKey: string }) {
   async function addIp() {
     if (!newIp.trim()) return
     setAddingIp(true)
-    await fetch('/api/settings/authorized-ips', {
+    const res = await fetch('/api/settings/authorized-ips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ip: newIp.trim() }),
     })
-    setIps(prev => [...prev, newIp.trim()])
-    setNewIp('')
+    if (res.ok) {
+      setIps(prev => [...prev, newIp.trim()])
+      setNewIp('')
+    }
     setAddingIp(false)
   }
 
   async function removeIp(ip: string) {
-    await fetch(`/api/settings/authorized-ips/${encodeURIComponent(ip)}`, { method: 'DELETE' })
-    setIps(prev => prev.filter(x => x !== ip))
+    const res = await fetch(`/api/settings/authorized-ips/${encodeURIComponent(ip)}`, { method: 'DELETE' })
+    if (res.ok) {
+      setIps(prev => prev.filter(x => x !== ip))
+    }
   }
 
   return (

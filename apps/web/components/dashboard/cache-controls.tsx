@@ -13,13 +13,23 @@ export function ClearCacheButton() {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   async function handleClear() {
     setLoading(true)
-    await fetch('/api/cache/clear', { method: 'DELETE' })
+    setError(null)
+    const res = await fetch('/api/cache/clear', { method: 'DELETE' })
     setLoading(false)
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Request failed' }))
+      setError(err.error ?? 'Failed to clear cache')
+      return
+    }
+    const data = await res.json()
+    setSuccess(`Cleared ${data.count ?? 0} vector entries`)
     setDone(true)
-    setTimeout(() => { setOpen(false); setDone(false) }, 1200)
+    setTimeout(() => { setOpen(false); setDone(false); setSuccess(null) }, 1200)
   }
 
   return (
@@ -46,9 +56,15 @@ export function ClearCacheButton() {
         <p className="text-[12px] mt-1 mb-4" style={{ color: '#606075' }}>
           All cached query responses will be removed. Next queries will hit inference directly until the cache rebuilds.
         </p>
+        {error && (
+          <p className="font-mono text-[10px] mb-2" style={{ color: '#f87171' }}>{error}</p>
+        )}
+        {success && (
+          <p className="font-mono text-[10px] mb-2" style={{ color: '#22c55e' }}>{success}</p>
+        )}
         <div className="flex justify-end gap-2">
           <button
-            onClick={() => setOpen(false)}
+            onClick={() => { setOpen(false); setError(null); setSuccess(null) }}
             className="font-mono text-[11px] px-4 py-2 rounded-md"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: '#606075' }}
           >

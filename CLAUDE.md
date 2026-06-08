@@ -17,7 +17,7 @@ For db:push use: `DATABASE_URL="<neon-pooler-url>" bunx prisma db push`
 For one-off scripts: `NODE_ENV=development bun --env-file=.env.local run <script>`
 
 ## Stack
-Runtime: Bun | Frontend: Next.js 15 App Router (NO src/ folder)
+Runtime: Bun | Frontend: Next.js 16 App Router (NO src/ folder)
 Language: TypeScript strict | UI: Shadcn/ui + Tailwind CSS v4
 Animation: Motion — import from 'motion/react'
 DB: Neon PostgreSQL + Prisma 6 | Cache: Upstash Redis + Vector
@@ -47,8 +47,8 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
 Week 5: IN PROGRESS
-Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes
-Week 5 remaining: Block 5 (UI correctness), Block 6 (repo hygiene), Run F (production deploy prep)
+Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene
+Week 5 remaining: Run F (production deploy prep)
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -139,15 +139,28 @@ tenantId flow: popup → SESSION_START message → service-worker stores in chro
 Observer blocks capture entirely if tenantId not set — no "unknown" tenant data ever written
 Popup setup UI: shown automatically when tenantId not configured; user pastes UUID, clicks Save
 
+## ESLint Config (fixed 2026-06-08)
+Config: `apps/web/eslint.config.mjs` — uses `eslint-config-next` flat array directly (NOT FlatCompat).
+FlatCompat removed: caused circular-ref crash in ESLint v10 + eslint-config-next v16.
+react.version set to "19" in settings; react-hooks/purity disabled (false positive on Date.now() in RSCs).
+Run: `bun run lint` from repo root or `bunx eslint app components lib types` from apps/web.
+Next.js 16 dropped `next lint` command — use `eslint` directly.
+
+## QStash Cron Idempotency (improved 2026-06-08)
+`scripts/register-qstash-cron.ts` now does exact URL match + stale schedule cleanup.
+Stale schedules (e.g. old ngrok URLs) deleted before registering new one.
+Idempotent: exits early if exact TRIGGER_URL already registered.
+
 ## Commands
 bun run dev           # Next.js turbopack
-bun run typecheck     # tsc --noEmit — run after every TS change
+bun run typecheck     # tsc --noEmit — delegates to apps/web; run after every TS change
+bun run lint          # eslint app components lib types — delegates to apps/web
 bun run db:push       # Prisma schema → Neon
 bun run db:generate   # regenerate Prisma client
 bun run db:studio     # Prisma Studio GUI
 bun run email:dev     # React Email preview at localhost:3001
 bun run setup:okbet   # Promote OKBET tenant to GROWTH (run after first login)
-bun run cron:register # Register QStash weekly training cron (idempotent)
+bun run cron:register # Register QStash weekly training cron (idempotent, exact URL match, stale cleanup)
 cd packages/extension && bun run build
 cd apps/inference && /Users/rihan/.pyenv/versions/3.11.9/bin/python -m uvicorn main:app --reload --port 8000
 cd pipeline && python run_pipeline.py <run_id> [agent_type]  # Manual pipeline trigger
