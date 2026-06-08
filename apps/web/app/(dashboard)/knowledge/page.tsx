@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { AddKnowledgeDialog, DeleteChunkButton } from '@/components/dashboard/knowledge-client'
+import { UploadDocumentDialog } from '@/components/dashboard/knowledge/upload-dialog'
 
 const SOURCE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   faq:               { bg: 'rgba(96,165,250,0.08)',  border: 'rgba(96,165,250,0.2)',  text: '#60a5fa' },
@@ -29,10 +30,31 @@ export default async function KnowledgePage() {
 
         {/* Header row */}
         <div className="flex items-center justify-between mb-5">
-          <p className="font-mono text-[10px] uppercase" style={{ color: '#606075', letterSpacing: '0.05em' }}>
-            {chunks.length} chunk{chunks.length !== 1 ? 's' : ''}
-          </p>
-          <AddKnowledgeDialog />
+          <div>
+            <h1
+              style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700, color: '#e8e8f0', marginBottom: 2 }}
+            >
+              Knowledge Base
+            </h1>
+            <p className="text-[11px]" style={{ color: '#606075' }}>
+              Documents your agents use to answer queries.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <UploadDocumentDialog />
+            <AddKnowledgeDialog />
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex items-center gap-4 mb-4">
+          <span className="font-mono text-[11px]" style={{ color: '#606075' }}>
+            <span style={{ color: '#e8e8f0' }}>{chunks.length}</span> chunk{chunks.length !== 1 ? 's' : ''}
+          </span>
+          <span style={{ color: '#30303f' }}>·</span>
+          <span className="font-mono text-[11px]" style={{ color: '#606075' }}>
+            <span style={{ color: '#e8e8f0' }}>0</span> documents
+          </span>
         </div>
 
         {chunks.length === 0 ? (
