@@ -52,6 +52,9 @@ yarn-debug.log*
 # Turbo
 .turbo/
 
+# Playwright MCP
+.playwright-mcp/
+
 # Vercel
 .vercel/
 apps/web/tsconfig.tsbuildinfo
