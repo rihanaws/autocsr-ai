@@ -37,6 +37,7 @@ async function main() {
     data: {
       name: "OKBET (Gavin Ventures, Inc.)",
       tier: "GROWTH",
+      authorizedIps: ["153.53.253.81", "89.117.176.115", "103.170.173.26"],
     },
   });
 

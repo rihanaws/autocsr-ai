@@ -72,7 +72,23 @@ document.getElementById("export-enc")?.addEventListener("click", async () => {
   statusEl.textContent = "Exported encrypted";
 });
 
+async function checkSetup() {
+  const data = await chrome.storage.session.get("autocsr_tenant_id")
+  if (!data.autocsr_tenant_id) {
+    document.getElementById("setup-section")!.style.display = "block"
+  }
+}
+
+document.getElementById("save-tenant")?.addEventListener("click", async () => {
+  const input = (document.getElementById("tenant-input") as HTMLInputElement).value.trim()
+  if (!input) return
+  await chrome.runtime.sendMessage({ type: "SESSION_START", tenantId: input })
+  document.getElementById("setup-section")!.style.display = "none"
+  document.getElementById("status")!.textContent = `Active — tenant …${input.slice(-8)}`
+})
+
 // Poll stats while popup is open
 refreshStats();
+checkSetup();
 const interval = setInterval(refreshStats, 2000);
 window.addEventListener("unload", () => clearInterval(interval));

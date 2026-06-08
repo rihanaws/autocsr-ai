@@ -46,9 +46,9 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
-Week 5: IN PROGRESS — security + correctness pass DONE (2026-06-08)
-Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes
-Week 5 remaining: Chrome extension E2E, knowledge embedding on chunk create, cache page real stats (Upstash Vector)
+Week 5: IN PROGRESS
+Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes
+Week 5 remaining: Block 5 (UI correctness), Block 6 (repo hygiene), Run F (production deploy prep)
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -85,11 +85,15 @@ All process.env.X replaced with typed `env.X` from `lib/env.ts` (Zod schema).
 Throws at startup if any required var is missing or malformed.
 Add new vars to BOTH `lib/env.ts` schema AND `.env.local`.
 
-## Inference Security (wired 2026-06-08)
+## Inference Security (wired 2026-06-08, hardened 2026-06-08)
 Auth: `Authorization: Bearer <INFERENCE_API_SECRET>` — fails-closed if secret missing.
-OKBET IP allowlist: reads LAST XFF entry (Railway hop), not first (spoofable).
+OKBET IP allowlist: DB-driven via `authorizedIps` on Tenant row — NOT hardcoded. setup:okbet writes correct IPs.
+XFF parsing: `idx = len(entries) - TRUSTED_PROXY_HOPS - 1` — selects entry BEFORE proxy hop (rightmost = proxy itself).
+IP validated via `ipaddress.ip_address()` before allowlist check — rejects malformed strings.
 `TRUSTED_PROXY_HOPS=1` env var in `apps/inference/.env` (default: 1).
 Secret shared: same value in `apps/web/.env.local` and `apps/inference/.env`.
+`load_dotenv()` called at top of main.py — .env auto-loaded on startup.
+X-Client-IP header removed from chat route — proxy chain handles XFF automatically.
 
 ## Training Pipeline (wired 2026-06-08, corrected 2026-06-08)
 Location: `pipeline/` — standalone Python package, run inside inference VM
@@ -126,6 +130,14 @@ query_event_id passed to schedule_audit() → judge.py links ReviewItem back to 
 Script: `bun run setup:okbet` (apps/web)
 Run after OKBET admin signs up at /signup — promotes their auto-provisioned tenant to GROWTH tier.
 Tenant must exist first (created on first login). Neon MCP can verify: SELECT * FROM "Tenant".
+Writes authorizedIps: ["153.53.253.81", "89.117.176.115", "103.170.173.26"] — inference IP check is DB-driven.
+
+## Chrome Extension (wired 2026-06-08)
+Build: `cd packages/extension && bun run build` — clean, icons present in dist/
+Icons: `packages/extension/icons/` — 1px placeholder PNGs, regenerate with `node scripts/gen-icons.mjs`
+tenantId flow: popup → SESSION_START message → service-worker stores in chrome.storage.session → observer reads async
+Observer blocks capture entirely if tenantId not set — no "unknown" tenant data ever written
+Popup setup UI: shown automatically when tenantId not configured; user pastes UUID, clicks Save
 
 ## Commands
 bun run dev           # Next.js turbopack
@@ -137,5 +149,5 @@ bun run email:dev     # React Email preview at localhost:3001
 bun run setup:okbet   # Promote OKBET tenant to GROWTH (run after first login)
 bun run cron:register # Register QStash weekly training cron (idempotent)
 cd packages/extension && bun run build
-cd apps/inference && uvicorn main:app --reload --port 8000
+cd apps/inference && /Users/rihan/.pyenv/versions/3.11.9/bin/python -m uvicorn main:app --reload --port 8000
 cd pipeline && python run_pipeline.py <run_id> [agent_type]  # Manual pipeline trigger

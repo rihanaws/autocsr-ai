@@ -1,11 +1,15 @@
 import hashlib
 import hmac
+import ipaddress
 import os
 import subprocess
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
+
+from dotenv import load_dotenv
+load_dotenv()
 
 import asyncpg
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
@@ -43,15 +47,7 @@ if not DATABASE_URL:
 
 security = HTTPBearer()
 
-# OKBET IP allowlist — "153.53.81" is a /24 prefix; checked via startswith.
-OKBET_ALLOWED_IPS: set[str] = {
-    "153.53.81",
-    "89.117.176.115",
-    "103.170.173.26",
-}
-
 # Number of trusted reverse-proxy hops in front of this service (Railway = 1).
-# We read the Nth-from-right entry in X-Forwarded-For to skip spoofable left entries.
 TRUSTED_PROXY_HOPS: int = int(os.getenv("TRUSTED_PROXY_HOPS", "1"))
 
 PILOT_TENANT_ID: str = os.getenv("PILOT_TENANT_ID", "")
@@ -62,21 +58,36 @@ PIPELINE_DIR: str = os.getenv(
 )
 
 
-def get_real_client_ip(request: Request) -> str:
+def get_real_client_ip(request: Request) -> str | None:
     """
-    Returns the real client IP by reading TRUSTED_PROXY_HOPS entries from the
-    right of X-Forwarded-For (the portion appended by trusted infrastructure).
-    Falls back to request.client.host when the header is absent.
+    Returns the real client IP by reading the entry just before the trusted proxy
+    hops in X-Forwarded-For. Returns None when header is absent, too short, or
+    contains a non-parseable IP at the selected position.
 
-    Never trusts the leftmost XFF entry directly — that field is client-controlled.
+    XFF layout: <client>, <proxy1>, ..., <our-proxy>
+    With TRUSTED_PROXY_HOPS=1 we want entries[-2] (what our proxy received).
     """
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        entries = [e.strip() for e in forwarded.split(",")]
-        # Take the entry added by our outermost trusted proxy
-        idx = max(0, len(entries) - TRUSTED_PROXY_HOPS)
-        return entries[idx]
-    return request.client.host if request.client else ""
+    xff = request.headers.get("X-Forwarded-For", "")
+    entries = [e.strip() for e in xff.split(",") if e.strip()]
+    if not entries:
+        return None
+    idx = len(entries) - TRUSTED_PROXY_HOPS - 1
+    if idx < 0:
+        return None
+    candidate = entries[idx]
+    try:
+        ipaddress.ip_address(candidate)
+    except ValueError:
+        return None
+    return candidate
+
+
+async def get_tenant_authorized_ips(pool: asyncpg.Pool, tenant_id: str) -> list[str]:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            'SELECT "authorizedIps" FROM "Tenant" WHERE id = $1', tenant_id
+        )
+        return list(row["authorizedIps"]) if row else []
 
 
 class InferRequest(BaseModel):
@@ -166,11 +177,13 @@ async def infer(
     if INFERENCE_API_SECRET and credentials.credentials != INFERENCE_API_SECRET:
         raise HTTPException(status_code=401, detail="Invalid API secret")
 
-    if body.tenant_id == "okbet":
-        ip = get_real_client_ip(request)
-        allowed = any(ip == allowed_ip or ip.startswith(allowed_ip + ".") for allowed_ip in OKBET_ALLOWED_IPS)
-        if not allowed:
-            raise HTTPException(status_code=403, detail=f"IP {ip} not authorized for this tenant")
+    pool = await _get_pool()
+
+    allowed_ips = await get_tenant_authorized_ips(pool, body.tenant_id)
+    if allowed_ips:
+        client_ip = get_real_client_ip(request)
+        if not client_ip or client_ip not in allowed_ips:
+            raise HTTPException(status_code=403, detail="IP not authorized")
 
     started = time.monotonic()
 
@@ -187,8 +200,6 @@ async def infer(
         )
 
     clean_query = guard_result["query"]
-
-    pool = await _get_pool()
 
     # Semantic cache lookup
     cached = lookup(clean_query, body.tenant_id)

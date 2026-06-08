@@ -33,11 +33,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "query is required" }, { status: 400 });
   }
 
-  const clientIp =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown";
-
   const payload = {
     query: body.query.trim(),
     tenant_id: session.user.tenantId,
@@ -54,7 +49,6 @@ export async function POST(req: Request): Promise<NextResponse> {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${env.INFERENCE_API_SECRET}`,
-        "X-Client-IP": clientIp,
       },
       body: JSON.stringify(payload),
       signal: controller.signal,

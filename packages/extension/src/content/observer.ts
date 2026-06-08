@@ -6,6 +6,7 @@ import type { Session, ExtractedContext } from "../lib/schema";
 
 let observer: MutationObserver | null = null;
 let sessionId: string | null = null;
+let sessionStartedAt = Date.now();
 
 function findLogRoot(): Element | null {
   return (
@@ -15,14 +16,18 @@ function findLogRoot(): Element | null {
   );
 }
 
-async function snapshot(): Promise<void> {
+async function getTenantId(): Promise<string | null> {
+  const data = await chrome.storage.session.get("autocsr_tenant_id")
+  return (data.autocsr_tenant_id as string | undefined) ?? null
+}
+
+async function snapshot(tenantId: string): Promise<void> {
   if (!sessionId) return;
 
   const rawMessages = extractMessages();
   const anonymized = anonymizeSession(rawMessages);
   const attachments = await captureImages();
 
-  // Merge attachments into last message if any found
   if (attachments.length > 0 && anonymized.length > 0) {
     const last = anonymized[anonymized.length - 1];
     last.attachments = [...(last.attachments ?? []), ...attachments];
@@ -37,7 +42,7 @@ async function snapshot(): Promise<void> {
 
   const session: Session = {
     id: sessionId,
-    tenantId: getTenantId(),
+    tenantId,
     startedAt: sessionStartedAt,
     resolved: false,
     context,
@@ -64,26 +69,28 @@ function getAgentName(): string | undefined {
   return el?.textContent?.trim() ?? undefined;
 }
 
-function getTenantId(): string {
-  // Injected by background service-worker at session start via chrome.storage.session
-  return (window as unknown as Record<string, string>).__AUTOCSR_TENANT_ID__ ?? "unknown";
-}
+export async function startObserver(): Promise<void> {
+  const tenantId = await getTenantId()
+  if (!tenantId) {
+    console.warn("[AutoCSR] tenantId not configured — capture blocked")
+    return
+  }
+  if (observer) return
 
-let sessionStartedAt = Date.now();
+  sessionId        = crypto.randomUUID()
+  sessionStartedAt = Date.now()
 
-export function startObserver(): void {
-  const root = findLogRoot();
-  if (!root || observer) return;
-
-  sessionId = crypto.randomUUID();
-  sessionStartedAt = Date.now();
+  const root = findLogRoot()
+  if (!root) {
+    console.warn("[AutoCSR] No conversation log root found")
+    return
+  }
 
   observer = new MutationObserver(() => {
-    snapshot().catch(console.error);
-  });
-
-  observer.observe(root, { childList: true, subtree: true });
-  snapshot().catch(console.error);
+    snapshot(tenantId).catch(console.error)
+  })
+  observer.observe(root, { childList: true, subtree: true })
+  snapshot(tenantId).catch(console.error)
 }
 
 export function stopObserver(): void {
@@ -93,7 +100,7 @@ export function stopObserver(): void {
 }
 
 if (document.readyState === "complete") {
-  startObserver();
+  startObserver().catch(console.error)
 } else {
-  window.addEventListener("load", startObserver);
+  window.addEventListener("load", () => startObserver().catch(console.error))
 }
