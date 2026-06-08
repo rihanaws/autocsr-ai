@@ -1,0 +1,5 @@
+[mcp_servers.Polar]
+url = "https://mcp.polar.sh/mcp/polar-mcp"
+
+[mcp_servers.Polar-Sandbox]
+url = "https://mcp.polar.sh/mcp/polar-sandbox"
