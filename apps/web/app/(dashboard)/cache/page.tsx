@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { db } from '@/lib/db'
 import { DashboardTopbar } from '@/components/dashboard/dashboard-topbar'
 import { CachePerformanceChart, type CacheChartRow } from '@/components/dashboard/cache-performance-chart'
+import { ClearCacheButton, SimilarityThresholdCard } from '@/components/dashboard/cache-controls'
 
 function startOf24h() {
   return new Date(Date.now() - 24 * 60 * 60 * 1000)
@@ -170,14 +171,17 @@ export default async function CachePage() {
           </div>
         </div>
 
-        {/* Manual invalidation docs */}
+        {/* Manual invalidation docs + clear all */}
         <div
           className="rounded-lg p-4"
           style={{ background: '#0f0f18', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <p className="font-mono uppercase text-[10px] mb-3" style={{ color: '#606075', letterSpacing: '0.05em' }}>
-            Manual Invalidation
-          </p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-mono uppercase text-[10px]" style={{ color: '#606075', letterSpacing: '0.05em' }}>
+              Manual Invalidation
+            </p>
+            <ClearCacheButton />
+          </div>
           <p className="text-[12px] mb-3" style={{ color: '#606075' }}>
             To invalidate a cache entry, use the API:
           </p>
@@ -195,6 +199,9 @@ export default async function CachePage() {
             Include your API key in the Authorization header: Bearer {'<apiKey>'}
           </p>
         </div>
+
+        {/* Similarity threshold */}
+        <SimilarityThresholdCard initial={0.92} />
       </div>
     </>
   )

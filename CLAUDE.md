@@ -47,7 +47,10 @@ font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
 Week 5: IN PROGRESS — env hardening + OKBET pilot config + training pipeline + QStash cron DONE
-Week 5 remaining: Chrome extension E2E, knowledge embedding on chunk create, cache page real stats, settings webhook test endpoint
+Week 5 dashboard pages DONE: knowledge upload dialog + doc stats, cache clear + similarity threshold editor, settings tabbed layout (API Access | Tenant | Danger Zone) + authorized IPs
+New API stubs (all Week 5 TODO wired): /api/knowledge/documents|upload|[id], /api/cache/entries|clear|threshold, /api/settings/api-key|authorized-ips|danger-zone/*
+New types: apps/web/types/knowledge.ts (KnowledgeDocument)
+Week 5 remaining: Chrome extension E2E, knowledge embedding on chunk create, cache page real stats (Upstash Vector), settings authorized IPs persistence to DB
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
