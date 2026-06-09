@@ -32,7 +32,11 @@ def _validate_tenant_id(tenant_id: str) -> None:
         raise ValueError(f"Invalid tenant_id: {tenant_id!r}")
 
 
-def lookup(query: str, tenant_id: str) -> dict | None:
+def cache_lookup(
+    query: str,
+    tenant_id: str,
+    threshold: float = SIMILARITY_THRESHOLD,
+) -> dict | None:
     """Return cached response dict or None on miss."""
     try:
         _validate_tenant_id(tenant_id)
@@ -41,16 +45,17 @@ def lookup(query: str, tenant_id: str) -> dict | None:
             data=query,
             top_k=1,
             include_metadata=True,
-            filter=f'tenant_id = "{tenant_id}"',
+            filter=f'tenant_id = "{tenant_id}" AND type = "cache"',
         )
         if not results:
             return None
         top = results[0]
         # Double-check returned record belongs to caller — guards against filter bypass
         if (
-            top.score >= SIMILARITY_THRESHOLD
+            top.score >= threshold
             and top.metadata
             and top.metadata.get("tenant_id") == tenant_id
+            and top.metadata.get("type") == "cache"
         ):
             return json.loads(top.metadata.get("payload", "null"))
         return None
@@ -95,7 +100,7 @@ def retrieve_knowledge(
         return []
 
 
-def write(query: str, tenant_id: str, response_payload: dict) -> None:
+def cache_write(query: str, tenant_id: str, response_payload: dict) -> None:
     """Upsert query + response into vector cache."""
     try:
         _validate_tenant_id(tenant_id)
@@ -107,6 +112,7 @@ def write(query: str, tenant_id: str, response_payload: dict) -> None:
                     "id": vector_id,
                     "data": query,
                     "metadata": {
+                        "type": "cache",
                         "tenant_id": tenant_id,
                         "payload": json.dumps(response_payload),
                     },

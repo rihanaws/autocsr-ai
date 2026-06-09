@@ -125,7 +125,7 @@ ALL API routes must use this guard — no exceptions:
   if (!session?.user?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const tenantId = session.user.tenantId
 NEVER use redirect() in API routes — return 401 JSON instead.
-All knowledge/cache/settings routes are auth-guarded. NOTE: auth + tenant scoping is done, but some routes are still functional stubs — see Known Gaps below (cache threshold, disconnect).
+All knowledge/cache/settings routes are auth-guarded. Cache-threshold + disconnect stubs fixed in Block 10 (see below).
 
 ## QueryEvent Persistence (wired 2026-06-08)
 create_query_event() in apps/inference/main.py writes to "QueryEvent" table for EVERY inference call.
@@ -170,12 +170,15 @@ User shell exports DATABASE_URL → localhost `claude_cache_db` (different proje
 This also clobbered schema.prisma once: `prisma db pull` ran with shell DATABASE_URL → introspected claude_cache_db → wiped all app models. Restored from HEAD + `bun run db:generate`.
 RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands). NEVER run `prisma db pull`. If typecheck suddenly loses Tier/tenant types → schema.prisma was clobbered, restore from git.
 
-## Known Gaps (Blocks 8–10 — not yet fixed)
-- HIGH: Tenant.cacheThreshold stored in DB but inference reads env var only — setting has no effect
-- HIGH: /demo page is a 404 — hero CTA links to it
-- MEDIUM: disconnect endpoint returns stub — no Polar cancel, no data deletion
-- MEDIUM: console.log(event) in polar webhook dumps full customer data to prod logs
+## Known Gaps
 - 24 Dependabot vulnerabilities (medium priority). Check: `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts`
+
+## Block 10 — Feature Gap Fixes (2026-06-10)
+- cacheThreshold WIRED: main.py `get_tenant_authorized_ips` → `get_tenant_config(pool, tenant_id)` — one Tenant query returns {authorized_ips, cache_threshold}; threshold passed to cache_lookup. FAIL-CLOSED: unknown tenant → 403; DB unreachable → 503 (caller maps non-HTTP exceptions); null cacheThreshold → 0.92 default only.
+- cache/semantic.py: `lookup`/`write` RENAMED `cache_lookup`/`cache_write`; cache_lookup accepts `threshold` param (default SEMANTIC_CACHE_THRESHOLD env); cache entries tagged `type="cache"` in metadata AND filter — distinct from knowledge chunks in shared AUTOCSR-AI-V2 index (critical: without tag, knowledge chunks could match as cache hits).
+- /demo page created: `app/(marketing)/demo/page.tsx` — closed-pilot notice + signup CTA.
+- disconnect endpoint REAL: lists active Polar subs by customerId (= Tenant.stripeCustomerId — field stores POLAR customer id, rename deferred to Run F), `subscriptions.revoke` each (SDK 0.47.1 has revoke, NOT cancel), tier→FREE, nulls stripeCustomerId/stripeSubId, deletes `session:tenant:<userId>` Redis keys.
+- console.log(event) polar webhook gap was stale — already removed in earlier block.
 
 ## Commands
 bun run dev           # Next.js turbopack

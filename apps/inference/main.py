@@ -18,7 +18,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from auditor.judge import schedule_audit
-from cache.semantic import lookup, write, _get_index, _validate_tenant_id, _TENANT_ID_RE
+from cache.semantic import cache_lookup, cache_write, _get_index, _validate_tenant_id, _TENANT_ID_RE
 from graph.guards.input_guard import check_input
 from graph.guards.output_guard import check_output
 from graph.workflow import workflow
@@ -94,12 +94,19 @@ def get_real_client_ip(request: Request) -> str | None:
     return candidate
 
 
-async def get_tenant_authorized_ips(pool: asyncpg.Pool, tenant_id: str) -> list[str]:
+async def get_tenant_config(pool: asyncpg.Pool, tenant_id: str) -> dict:
+    # DB failure here is fail-closed — raises 503, not silent []
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            'SELECT "authorizedIps" FROM "Tenant" WHERE id = $1', tenant_id
+            'SELECT "authorizedIps", "cacheThreshold" FROM "Tenant" WHERE id = $1',
+            tenant_id,
         )
-        return list(row["authorizedIps"]) if row else []
+    if not row:
+        raise HTTPException(status_code=403, detail="Tenant not found")
+    return {
+        "authorized_ips":  list(row["authorizedIps"] or []),
+        "cache_threshold": float(row["cacheThreshold"] or 0.92),
+    }
 
 
 CHUNK_SIZE    = 512
@@ -299,7 +306,15 @@ async def infer(
 
     pool = request.app.state.db_pool
 
-    allowed_ips = await get_tenant_authorized_ips(pool, body.tenant_id)
+    try:
+        config = await get_tenant_config(pool, body.tenant_id)
+    except HTTPException:
+        raise
+    except Exception:
+        # DB unreachable — fail closed, never skip the IP allowlist
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable")
+    allowed_ips     = config["authorized_ips"]
+    cache_threshold = config["cache_threshold"]
     if allowed_ips:
         client_ip = get_real_client_ip(request)
         if not client_ip or client_ip not in allowed_ips:
@@ -322,7 +337,7 @@ async def infer(
     clean_query = guard_result["query"]
 
     # Semantic cache lookup
-    cached = lookup(clean_query, body.tenant_id)
+    cached = cache_lookup(clean_query, body.tenant_id, threshold=cache_threshold)
     if cached:
         resolution_ms = int((time.monotonic() - started) * 1000)
         await create_query_event(
@@ -381,7 +396,7 @@ async def infer(
     }
 
     # Cache write — fire and forget
-    write(clean_query, body.tenant_id, payload)
+    cache_write(clean_query, body.tenant_id, payload)
 
     query_event_id = await create_query_event(
         pool,
