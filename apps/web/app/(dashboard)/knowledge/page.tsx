@@ -17,11 +17,22 @@ export default async function KnowledgePage() {
   if (!session?.user?.tenantId) redirect('/login')
   const tenantId = session.user.tenantId
 
-  const chunks = await db.knowledgeChunk.findMany({
-    where: { tenantId },
-    orderBy: { createdAt: 'desc' },
-    select: { id: true, content: true, source: true, agentType: true, createdAt: true },
-  })
+  const [chunks, docCount, chunkCount, processingCount] = await Promise.all([
+    db.knowledgeChunk.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, content: true, source: true, agentType: true, createdAt: true },
+    }),
+    db.knowledgeDocument.count({
+      where: { tenantId, status: "READY" },
+    }),
+    db.knowledgeChunk.count({
+      where: { tenantId },
+    }),
+    db.knowledgeDocument.count({
+      where: { tenantId, status: "PROCESSING" },
+    }),
+  ])
 
   return (
     <>
@@ -49,12 +60,20 @@ export default async function KnowledgePage() {
         {/* Stats row */}
         <div className="flex items-center gap-4 mb-4">
           <span className="font-mono text-[11px]" style={{ color: '#606075' }}>
-            <span style={{ color: '#e8e8f0' }}>{chunks.length}</span> chunk{chunks.length !== 1 ? 's' : ''}
+            <span style={{ color: '#e8e8f0' }}>{chunkCount}</span> chunk{chunkCount !== 1 ? 's' : ''}
           </span>
           <span style={{ color: '#30303f' }}>·</span>
           <span className="font-mono text-[11px]" style={{ color: '#606075' }}>
-            <span style={{ color: '#e8e8f0' }}>0</span> documents
+            <span style={{ color: '#e8e8f0' }}>{docCount}</span> document{docCount !== 1 ? 's' : ''}
           </span>
+          {processingCount > 0 && (
+            <>
+              <span style={{ color: '#30303f' }}>·</span>
+              <span className="font-mono text-[11px]" style={{ color: '#f59e0b' }}>
+                {processingCount} processing
+              </span>
+            </>
+          )}
         </div>
 
         {chunks.length === 0 ? (

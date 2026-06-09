@@ -2,6 +2,8 @@ import os
 
 from openai import OpenAI
 
+from cache.semantic import retrieve_knowledge
+
 _client: OpenAI | None = None
 
 
@@ -26,10 +28,18 @@ Guidelines:
 def deposit_agent(query: str, tenant_id: str) -> dict:
     try:
         client = _get_client()
+        kb_chunks = retrieve_knowledge(query, tenant_id)
+        kb_context = ""
+        if kb_chunks:
+            kb_context = (
+                "\n\nRelevant knowledge base context:\n"
+                + "\n---\n".join(kb_chunks)
+            )
+        full_system = SYSTEM_PROMPT + kb_context
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": full_system},
                 {"role": "user", "content": query},
             ],
             temperature=0.3,

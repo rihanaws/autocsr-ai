@@ -1,3 +1,4 @@
+import hashlib
 import ipaddress
 import os
 import subprocess
@@ -11,13 +12,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncpg
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from auditor.judge import schedule_audit
-from cache.semantic import lookup, write
+from cache.semantic import lookup, write, _get_index
 from graph.guards.input_guard import check_input
 from graph.guards.output_guard import check_output
 from graph.workflow import workflow
@@ -101,6 +102,27 @@ async def get_tenant_authorized_ips(pool: asyncpg.Pool, tenant_id: str) -> list[
         return list(row["authorizedIps"]) if row else []
 
 
+CHUNK_SIZE    = 512
+CHUNK_OVERLAP = 64
+
+
+def _chunk_text(text: str) -> list[str]:
+    chunks, start = [], 0
+    while start < len(text):
+        chunk = text[start : start + CHUNK_SIZE].strip()
+        if chunk:
+            chunks.append(chunk)
+        start += CHUNK_SIZE - CHUNK_OVERLAP
+    return chunks
+
+
+class KnowledgeEmbedRequest(BaseModel):
+    tenantId:   str
+    documentId: str
+    text:       str
+    name:       str
+
+
 class InferRequest(BaseModel):
     query: str
     tenant_id: str
@@ -165,6 +187,92 @@ async def create_query_event(
         print(f"[query_event] write failed: {type(e).__name__}: {e}", flush=True)
         return ""
     return event_id
+
+
+async def _update_doc_status(document_id: str, status: str, chunk_count: int) -> None:
+    try:
+        pool = app.state.db_pool
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE "KnowledgeDocument"
+                SET status = $1, "chunkCount" = $2
+                WHERE id = $3
+                """,
+                status, chunk_count, document_id,
+            )
+    except Exception as e:
+        print(f"[knowledge/embed] _update_doc_status error: {e}")
+
+
+async def _embed_and_store(req: KnowledgeEmbedRequest) -> None:
+    chunks = _chunk_text(req.text)
+    if not chunks:
+        await _update_doc_status(req.documentId, "FAILED", 0)
+        return
+
+    try:
+        upserts   = []
+        db_chunks = []
+
+        for i, chunk in enumerate(chunks):
+            vector_id = f"kb_{req.tenantId}_{req.documentId}_{i}"
+            upserts.append({
+                "id":   vector_id,
+                "data": chunk,
+                "metadata": {
+                    "type":        "knowledge",
+                    "tenant_id":   req.tenantId,
+                    "document_id": req.documentId,
+                    "chunk_index": i,
+                    "source":      req.name,
+                    "content":     chunk,
+                },
+            })
+            db_chunks.append((
+                vector_id,
+                req.tenantId,
+                chunk,
+                req.name,
+            ))
+
+        # Upstash Vector upsert — text-based, no embedding call needed
+        index = _get_index()
+        index.upsert(vectors=upserts)
+
+        # Write KnowledgeChunk rows to Neon
+        pool = app.state.db_pool
+        async with pool.acquire() as conn:
+            await conn.executemany(
+                """
+                INSERT INTO "KnowledgeChunk"
+                    (id, "tenantId", content, source, "createdAt")
+                VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (id) DO NOTHING
+                """,
+                db_chunks,
+            )
+
+        await _update_doc_status(req.documentId, "READY", len(chunks))
+        print(f"[knowledge/embed] {len(chunks)} chunks stored — doc {req.documentId}")
+
+    except Exception as e:
+        print(f"[knowledge/embed] _embed_and_store error: {e}")
+        await _update_doc_status(req.documentId, "FAILED", 0)
+
+
+@app.post("/api/knowledge/embed")
+async def embed_knowledge(
+    req:        KnowledgeEmbedRequest,
+    background: BackgroundTasks,
+    request:    Request,
+) -> dict:
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer ") or auth_header[7:] != INFERENCE_API_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    background.add_task(_embed_and_store, req)
+    return {"status": "queued", "documentId": req.documentId}
 
 
 @app.get("/health")

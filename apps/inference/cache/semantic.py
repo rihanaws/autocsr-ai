@@ -60,6 +60,36 @@ def lookup(query: str, tenant_id: str) -> dict | None:
         return None
 
 
+def retrieve_knowledge(
+    query_text: str,
+    tenant_id:  str,
+    top_k:      int   = 3,
+    min_score:  float = 0.72,
+) -> list[str]:
+    """
+    Sync — safe to call from sync LangGraph agent nodes.
+    Uses data= (text) query — index auto-embeds, no external call needed.
+    Returns empty list on any failure — never breaks inference.
+    """
+    try:
+        _validate_tenant_id(tenant_id)
+        index = _get_index()
+        results = index.query(
+            data=query_text,
+            top_k=top_k,
+            filter=f'type = "knowledge" AND tenant_id = "{tenant_id}"',
+            include_metadata=True,
+        )
+        return [
+            r.metadata["content"]
+            for r in results
+            if r.score >= min_score and r.metadata.get("content")
+        ]
+    except Exception as e:
+        print(f"[knowledge/retrieve] error: {e}")
+        return []
+
+
 def write(query: str, tenant_id: str, response_payload: dict) -> None:
     """Upsert query + response into vector cache."""
     try:
