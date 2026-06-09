@@ -70,10 +70,11 @@ Checkout: Server Action in `app/(dashboard)/settings/billing/actions.ts`
 Webhook handler: `app/api/webhooks/polar/route.ts` — matches on `customer.externalId` (=tenantId)
 CRITICAL: Polar sends tenantId as `customer.externalId`, NOT `customerId` — match on `id` first
 
-## Neon DB — Two endpoints (same project)
-- Pooler (used by app): `ep-proud-sound-aoyz34le-pooler.c-2.ap-southeast-1.aws.neon.tech` — has inference tables only (cache_entries, transactions, etc.)
-- Non-pooler (auth/app tables): `ep-proud-sound-aoyz34le.c-2.ap-southeast-1.aws.neon.tech` — has Tenant, User, Session, etc.
-- App DB queries work because Prisma uses pooler with ?channel_binding=require; psql direct queries need non-pooler URL
+## Neon DB — Two endpoints (same project, SAME database)
+- Pooler (used by app): `ep-proud-sound-aoyz34le-pooler.c-2.ap-southeast-1.aws.neon.tech`
+- Non-pooler: `ep-proud-sound-aoyz34le.c-2.ap-southeast-1.aws.neon.tech`
+- CORRECTED 2026-06-10: BOTH endpoints serve the same DB with ALL tables. Earlier "pooler has inference tables only (cache_entries, transactions)" was FALSE — that table list is the LOCAL claude_cache_db leaking in via shell DATABASE_URL (see Shell env leak section)
+- If a connection shows cache_entries/transactions/webhook_logs/rate_history → wrong DB (local), fix env
 - Tables: Account, KnowledgeChunk, KnowledgeDocument, QueryEvent, ReviewItem, Session, Tenant, TrainingExample, TrainingRun, User, VerificationToken
 - Tenant model additions (2026-06-08): cacheThreshold Float @default(0.92), authorizedIps String[] @default([])
 
