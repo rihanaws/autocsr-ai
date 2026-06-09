@@ -37,18 +37,19 @@ Model: Hermes-3-Llama-3.1-8B + LoRA adapters
 - global-error.tsx required in app/ for proper error boundaries
 
 ## Design Tokens (use exact values — no Tailwind color-* for custom colors)
-bg-base:#090910 | bg-surface:#0f0f18 | bg-surface-2:#141420
-border:rgba(255,255,255,0.06) | border-strong:rgba(255,255,255,0.12)
+bg-void:#060608 | bg-base:#090910 | bg-surface:#0f0f18 | bg-surface-2:#141420 | bg-surface-3:#1a1a28
+border:rgba(255,255,255,0.06) | border-strong:rgba(255,255,255,0.12) | accent-hover:#4338ca
+accent-glow:rgba(79,70,229,0.12) | accent-border:rgba(79,70,229,0.25)
 text:#e8e8f0 | text-sub:#606075 | text-dim:#30303f
-accent:#4f46e5 | accent-glow:rgba(79,70,229,0.12)
-green:#22c55e | amber:#f59e0b | red:#ef4444
-font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
+accent:#4f46e5 | green:#22c55e | amber:#f59e0b | red:#ef4444 | blue:#3b82f6
+font-display:Geist 700 (var: --font-geist-sans) | font-body:Inter | font-mono:JetBrains Mono
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
 Week 5: IN PROGRESS
 Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene
 Week 5 remaining: Run F (production deploy prep)
+Week 5 ALSO DONE (June 9): font system (Geist+Inter npm), SEO metadata, robots.txt, sitemap.ts, legal pages (terms/privacy/refund), BRAND.md, MASTER_PLAN amended, footer with legal links, OG image
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -76,14 +77,17 @@ CRITICAL: Polar sends tenantId as `customer.externalId`, NOT `customerId` — ma
 - Tenant model additions (2026-06-08): cacheThreshold Float @default(0.92), authorizedIps String[] @default([])
 
 ## ngrok (local dev tunneling)
-Static URL: `https://foziest-prius-maranda.ngrok-free.dev` → localhost:3000
+Static URL: `https://foziest-prius-maranda.ngrok-free.dev`
+Web (port 3000): `ngrok http --url=foziest-prius-maranda.ngrok-free.dev 3000`
+Inference/QStash (port 8000): `ngrok http --url=foziest-prius-maranda.ngrok-free.dev 8000`
 Config: `~/Library/Application Support/ngrok/ngrok.yml`
-Start: `ngrok http --url=foziest-prius-maranda.ngrok-free.dev 3000`
+CRITICAL: QStash weekly trigger fires to port 8000 — tunnel port 8000, not 3000.
 
 ## Env Validation — lib/env.ts (wired 2026-06-08)
 All process.env.X replaced with typed `env.X` from `lib/env.ts` (Zod schema).
 Throws at startup if any required var is missing or malformed.
 Add new vars to BOTH `lib/env.ts` schema AND `.env.local`.
+Depends on `zod` — now a DIRECT dep in apps/web/package.json (added 2026-06-08; was previously phantom/transitive-only, which broke clean `next build`).
 
 ## Inference Security (wired 2026-06-08, hardened 2026-06-08)
 Auth: `Authorization: Bearer <INFERENCE_API_SECRET>` — fails-closed if secret missing.
@@ -118,7 +122,7 @@ ALL API routes must use this guard — no exceptions:
   if (!session?.user?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const tenantId = session.user.tenantId
 NEVER use redirect() in API routes — return 401 JSON instead.
-All knowledge/cache/settings routes now auth-guarded and DB-backed (no more stubs).
+All knowledge/cache/settings routes are auth-guarded. NOTE: auth + tenant scoping is done, but several routes are still functional stubs — see Known Gaps below (knowledge upload, cache threshold, disconnect).
 
 ## QueryEvent Persistence (wired 2026-06-08)
 create_query_event() in apps/inference/main.py writes to "QueryEvent" table for EVERY inference call.
@@ -150,6 +154,18 @@ Next.js 16 dropped `next lint` command — use `eslint` directly.
 `scripts/register-qstash-cron.ts` now does exact URL match + stale schedule cleanup.
 Stale schedules (e.g. old ngrok URLs) deleted before registering new one.
 Idempotent: exits early if exact TRIGGER_URL already registered.
+
+## Known Gaps (Blocks 7–10 — not yet fixed)
+- CRITICAL: workflow.invoke() in main.py is SYNC — blocks uvicorn event loop. Fix: await workflow.ainvoke()
+- CRITICAL: weekly trigger creates new asyncpg pool instead of reusing _db_pool — connection leak
+- HIGH: QStash signature verification uses raw HMAC — should be JWT (HS256) verify with @upstash/qstash
+- HIGH: knowledge upload is a dead stub — no chunking, no embedding, no retrieval wired
+- HIGH: Tenant.cacheThreshold stored in DB but inference reads env var only — setting has no effect
+- HIGH: /demo page is a 404 — hero CTA links to it
+- MEDIUM: session callback hits Neon on every getSession() — needs Redis cache (60s TTL)
+- MEDIUM: disconnect endpoint returns stub — no Polar cancel, no data deletion
+- MEDIUM: console.log(event) in polar webhook dumps full customer data to prod logs
+- 24 Dependabot vulnerabilities (medium priority). Check: `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts`
 
 ## Commands
 bun run dev           # Next.js turbopack

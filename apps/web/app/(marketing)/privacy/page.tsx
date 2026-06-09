@@ -1,0 +1,250 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
+
+export const metadata: Metadata = {
+  title: 'Privacy Policy',
+  description:
+    'AutoCSR Privacy Policy — how TechSci, Inc. collects, uses, and protects data on the AutoCSR AI customer service automation platform.',
+  alternates: { canonical: '/privacy' },
+  openGraph: {
+    title: 'Privacy Policy | AutoCSR',
+    description: 'How AutoCSR collects, uses, and protects your data.',
+  },
+}
+
+const EFFECTIVE_DATE = 'June 8, 2026'
+const COMPANY = 'TechSci, Inc.'
+const EMAIL_PRIVACY = 'privacy@techsci.co'
+const EMAIL_DPO = 'dpo@techsci.co'
+
+export default function PrivacyPage() {
+  return (
+    <div style={{ background: '#090910', minHeight: '100vh' }}>
+      <nav
+        className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 border-b"
+        style={{ background: 'rgba(9,9,16,0.92)', borderColor: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}
+      >
+        <Link href="/" className="font-display font-bold text-[15px]" style={{ color: '#e8e8f0', letterSpacing: '-0.02em' }}>
+          AUTOCSR
+        </Link>
+        <Link href="/" className="text-[13px] transition-colors" style={{ color: '#606075' }}>
+          ← Back to home
+        </Link>
+      </nav>
+
+      <div className="max-w-3xl mx-auto px-6 py-16">
+        <div className="mb-12">
+          <p className="font-mono text-[10px] tracking-widest uppercase mb-4" style={{ color: '#4f46e5' }}>Legal</p>
+          <h1 className="font-display font-bold mb-3" style={{ fontSize: 'clamp(28px, 4vw, 40px)', color: '#e8e8f0', letterSpacing: '-0.03em' }}>
+            Privacy Policy
+          </h1>
+          <p className="font-mono text-[12px]" style={{ color: '#606075' }}>
+            Effective date: {EFFECTIVE_DATE} · {COMPANY}
+          </p>
+        </div>
+
+        <div className="space-y-6 text-[14px] leading-relaxed privacy-body" style={{ color: '#9898b0' }}>
+          <style>{`
+            .privacy-body p { margin-bottom: 0.75rem; }
+            .privacy-body a { color: #a5a0ff; text-decoration: underline; text-decoration-color: rgba(165,160,255,0.3); }
+            .privacy-body a:hover { color: #e8e8f0; }
+            .privacy-body strong { color: #e8e8f0; font-weight: 600; }
+            .privacy-body h2 { color: #e8e8f0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+            .privacy-body ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+            .privacy-body li { margin-bottom: 0.4rem; }
+            .privacy-body table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 12px; }
+            .privacy-body th { color: #e8e8f0; text-align: left; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+            .privacy-body td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: top; }
+          `}</style>
+
+          <p>
+            {COMPANY} (&quot;Company,&quot; &quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates the AutoCSR platform
+            (&quot;Service&quot;). This Privacy Policy explains how we collect, use, disclose, and protect
+            information when you use our Service. By using AutoCSR, you agree to the practices
+            described in this Policy.
+          </p>
+
+          <h2 id="s1">1. Who This Policy Covers</h2>
+          <p>
+            This Policy applies to <strong>operators</strong> — companies and individuals who create
+            an account to use the AutoCSR platform — and to information we process about operators&apos;
+            end users (betting platform customers) as described below.
+          </p>
+          <p>
+            AutoCSR is a B2B service. We do not directly collect data from betting platform end users.
+            Operators are responsible for their own privacy obligations to their end users under
+            applicable gaming and data protection regulations.
+          </p>
+
+          <h2 id="s2">2. Information We Collect</h2>
+          <h3 className="text-[14px] font-semibold" style={{ color: '#e8e8f0' }}>2.1 Account & Operator Information</h3>
+          <ul>
+            <li>Name, email address, company name (provided at registration)</li>
+            <li>Payment information (processed by Polar/Stripe; we receive billing status, not card numbers)</li>
+            <li>Authentication data (via Google OAuth or email magic links)</li>
+            <li>IP addresses used to access the dashboard</li>
+          </ul>
+
+          <h3 className="text-[14px] font-semibold" style={{ color: '#e8e8f0' }}>2.2 Usage & Service Data</h3>
+          <ul>
+            <li>Query logs: text of customer service queries submitted to the inference API (anonymized per our anonymization pipeline)</li>
+            <li>AI Output: responses generated by the system</li>
+            <li>Performance metrics: response time, cache hit rates, confidence scores, resolution status</li>
+            <li>Training data: approved examples from human review queues used to improve models</li>
+            <li>Knowledge base content: documents and FAQ data uploaded by operators</li>
+          </ul>
+
+          <h3 className="text-[14px] font-semibold" style={{ color: '#e8e8f0' }}>2.3 Technical Data</h3>
+          <ul>
+            <li>Log data: server logs, error logs, API request logs</li>
+            <li>Device/browser data collected via standard HTTP headers</li>
+            <li>Cookies and local storage used for session management and authentication</li>
+          </ul>
+
+          <h2 id="s3">3. How We Use Information</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Purpose</th>
+                <th>Legal Basis (GDPR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Providing and operating the Service', 'Contract performance'],
+                ['Processing payments and billing', 'Contract performance'],
+                ['Sending transactional emails (welcome, billing alerts)', 'Contract performance'],
+                ['Improving AI model accuracy via aggregated training data', 'Legitimate interests'],
+                ['Detecting and preventing fraud or security threats', 'Legitimate interests / Legal obligation'],
+                ['Responding to support requests', 'Contract performance'],
+                ['Complying with legal obligations', 'Legal obligation'],
+                ['Sending product updates and feature announcements', 'Legitimate interests (opt-out available)'],
+              ].map(([purpose, basis]) => (
+                <tr key={purpose}>
+                  <td>{purpose}</td>
+                  <td><span className="font-mono text-[11px]" style={{ color: '#a5a0ff' }}>{basis}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <p>
+            We do not use Customer Data to train general-purpose AI models that are shared across
+            unrelated operators. Tenant data is isolated. Model improvements use aggregated,
+            de-identified signals only.
+          </p>
+
+          <h2 id="s4">4. Data Sharing and Disclosure</h2>
+          <p>We do not sell personal information. We share data only as follows:</p>
+          <ul>
+            <li><strong>Infrastructure providers:</strong> Neon (PostgreSQL hosting), Upstash (Redis/Vector), Vercel (hosting), Railway (inference compute) — each under appropriate data processing agreements.</li>
+            <li><strong>AI providers:</strong> Anthropic (Claude Haiku, used for response auditing) and Together.ai (model inference) may process query text. Both are bound by applicable data processing agreements.</li>
+            <li><strong>Payment processors:</strong> Polar and Stripe process billing data under their own privacy policies.</li>
+            <li><strong>Email delivery:</strong> Resend processes email content for transactional delivery.</li>
+            <li><strong>Legal requirements:</strong> We may disclose information if required by law, subpoena, court order, or to protect the rights and safety of users or the public.</li>
+            <li><strong>Business transfers:</strong> If Company is acquired or merges, Customer Data may be transferred as part of that transaction, subject to continued protection under this Policy.</li>
+          </ul>
+
+          <h2 id="s5">5. Data Retention</h2>
+          <p>
+            We retain account data for the duration of the Subscription plus 90 days after termination
+            to allow data export. Query event logs are retained for 12 months. Training examples are
+            retained indefinitely to support model versioning and audit trails unless deletion is
+            requested. Anonymized, aggregated metrics may be retained indefinitely.
+          </p>
+          <p>
+            You may request deletion of your data at any time by contacting{' '}
+            <a href={`mailto:${EMAIL_PRIVACY}`}>{EMAIL_PRIVACY}</a>.
+          </p>
+
+          <h2 id="s6">6. Data Security</h2>
+          <p>
+            We implement industry-standard security measures including:
+          </p>
+          <ul>
+            <li>TLS 1.3 encryption for all data in transit</li>
+            <li>AES-256 encryption for sensitive data at rest</li>
+            <li>Database access controls with tenant isolation at the row level</li>
+            <li>API authentication via bearer tokens with rotating secrets</li>
+            <li>IP allowlisting for inference API access</li>
+            <li>Regular dependency vulnerability scanning</li>
+          </ul>
+          <p>
+            Despite our security measures, no system is completely secure. We cannot guarantee
+            absolute security of your data.
+          </p>
+
+          <h2 id="s7">7. International Data Transfers</h2>
+          <p>
+            {COMPANY} is incorporated in the United States. Our infrastructure providers operate
+            data centers globally, including in the US and EU. Data transferred from the European
+            Economic Area (EEA) or United Kingdom is handled under Standard Contractual Clauses
+            (SCCs) or equivalent transfer mechanisms. Operators processing data subject to GDPR
+            may request a Data Processing Agreement (DPA) at <a href={`mailto:${EMAIL_DPO}`}>{EMAIL_DPO}</a>.
+          </p>
+          <p>
+            Our primary data center region is <strong>ap-southeast-1 (Singapore)</strong> for Neon
+            PostgreSQL, hosted via AWS infrastructure operated by Neon.
+          </p>
+
+          <h2 id="s8">8. Your Rights</h2>
+          <p>Depending on your jurisdiction, you may have the following rights:</p>
+          <ul>
+            <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
+            <li><strong>Rectification:</strong> Correct inaccurate data in your account settings or by contacting us.</li>
+            <li><strong>Erasure:</strong> Request deletion of your account and associated data.</li>
+            <li><strong>Portability:</strong> Export your Customer Data via the dashboard export function.</li>
+            <li><strong>Objection / Restriction:</strong> Object to processing based on legitimate interests or request that we restrict processing.</li>
+            <li><strong>Withdraw Consent:</strong> Where processing is based on consent, withdraw at any time.</li>
+            <li><strong>Non-Discrimination:</strong> California residents: we do not discriminate based on exercise of CCPA rights.</li>
+          </ul>
+          <p>
+            To exercise these rights, email <a href={`mailto:${EMAIL_PRIVACY}`}>{EMAIL_PRIVACY}</a>.
+            We will respond within 30 days (45 days if extension is needed under GDPR).
+          </p>
+
+          <h2 id="s9">9. Cookies</h2>
+          <p>
+            AutoCSR uses essential cookies for session management and authentication (NextAuth session
+            token). We do not use third-party advertising cookies or tracking pixels. No cookie consent
+            banner is required as we only set strictly necessary cookies.
+          </p>
+
+          <h2 id="s10">10. Children&apos;s Privacy</h2>
+          <p>
+            The AutoCSR platform is a B2B service intended for business operators only. We do not
+            knowingly collect personal information from individuals under 18 years of age. The
+            Service is not directed at or intended for use by minors.
+          </p>
+
+          <h2 id="s11">11. Changes to This Policy</h2>
+          <p>
+            We may update this Policy from time to time. We will notify you of material changes by
+            email and by posting the updated Policy with a new effective date. Your continued use
+            after the effective date constitutes acceptance of the updated Policy.
+          </p>
+
+          <h2 id="s12">12. Contact Us</h2>
+          <p>
+            Privacy inquiries: <a href={`mailto:${EMAIL_PRIVACY}`}>{EMAIL_PRIVACY}</a><br />
+            DPA / GDPR requests: <a href={`mailto:${EMAIL_DPO}`}>{EMAIL_DPO}</a><br />
+            {COMPANY} · 1209 Orange Street · Wilmington, DE 19801 · United States
+          </p>
+        </div>
+
+        <div className="mt-16 pt-8 border-t flex flex-wrap gap-6" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          {[
+            { href: '/terms', label: 'Terms of Service' },
+            { href: '/refund', label: 'Refund Policy' },
+            { href: '/', label: 'Back to AutoCSR' },
+          ].map(link => (
+            <Link key={link.href} href={link.href} className="font-mono text-[11px] transition-colors"
+              style={{ color: '#606075' }}>
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}

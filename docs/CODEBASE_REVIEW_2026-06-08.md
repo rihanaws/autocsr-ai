@@ -2,203 +2,295 @@
 
 ## Scope
 
-Reviewed entire project folder at `/Users/rihan/all-coding-project/autocsr`, with extra focus on uncommitted/new files:
+Reviewed project folder: `/Users/rihan/all-coding-project/autocsr`.
 
-- Modified: `apps/web/app/(dashboard)/cache/page.tsx`, `apps/web/app/(dashboard)/knowledge/page.tsx`, `apps/web/app/(dashboard)/settings/page.tsx`
-- New: `apps/web/app/api/cache/*`, `apps/web/app/api/knowledge/*`, `apps/web/app/api/settings/*`, `apps/web/components/dashboard/cache-controls.tsx`, `apps/web/components/dashboard/knowledge/upload-dialog.tsx`, `apps/web/components/dashboard/settings-tabs.tsx`, `apps/web/types/knowledge.ts`
-- Also checked: web auth/db/billing/chat, inference service, training pipeline, Chrome extension, generated/local artifacts.
+Inputs checked:
+
+- `CLAUDE.md`
+- `AGENTS.md`
+- `session-state-2026-06-08.md`
+- Current git state and recent commits
+- Web app routes, dashboard pages, API routes, auth/env/db helpers
+- Inference service, semantic cache, auditor
+- Training pipeline
+- Chrome extension package
+- Local/generated files and verification commands
+
+Current git state: clean. Last relevant commits:
+
+- `578e4de` `chore: ignore .playwright-mcp/`
+- `c8ad272` `chore: add codex config, serena config, AGENTS.md, codebase review, session state`
+- `803e889` `fix(security): auth-guard all API routes + wire QueryEvent + fix pipeline`
+- `048a320` `feat(dashboard): knowledge upload, cache controls, settings tabs`
 
 ## Current Understanding
 
-AutoCSR is a Bun monorepo:
+AutoCSR is Bun monorepo for AI-native CSR automation.
 
-- `apps/web`: Next.js 16/React 19 dashboard, auth via NextAuth v5, Neon/Prisma 6, Polar billing, Upstash Redis/Vector clients, React Email.
-- `apps/inference`: FastAPI service handling `/api/infer` and QStash-triggered `/api/training/weekly-trigger`.
-- `pipeline`: standalone Python training pipeline: convert approved examples, QLoRA fine-tune, evaluate, promote/reject adapter.
-- `packages/extension`: MV3 Chrome extension for LiveAgent CSR conversation capture/export.
+- `apps/web`: Next.js 16 dashboard/marketing/auth app. NextAuth v5, Prisma 6, Neon, Polar, Upstash Redis/Vector, React Email.
+- `apps/inference`: FastAPI inference service. Handles `/api/infer`, semantic cache, guards, auditor, QStash weekly trigger.
+- `pipeline`: Python training package. Converts approved examples, fine-tunes adapter, evaluates, updates `TrainingRun`.
+- `packages/extension`: MV3 Chrome extension for LiveAgent conversation capture/export.
 
 Intended flow:
 
-1. User signs in to web app. NextAuth creates `Tenant`.
-2. Dashboard calls `/api/chat`.
-3. Web route adds tenant from session and forwards request to inference with bearer secret.
-4. Inference routes query to agent, checks semantic cache, writes cache, schedules auditor.
-5. Dashboard reads `QueryEvent`, `ReviewItem`, `KnowledgeChunk`, `TrainingRun`, `TrainingExample`.
-6. QStash cron hits inference weekly trigger, creates `TrainingRun`, starts pipeline.
-7. Pipeline reads approved `TrainingExample`, fine-tunes adapter, updates `TrainingRun`.
-8. Extension captures LiveAgent sessions for training/export.
+1. User signs in; NextAuth creates user session and tenant.
+2. Web `/api/chat` adds `tenant_id` from session and forwards query to inference with bearer secret.
+3. Inference checks IP allowlist for OKBET, applies input guard, checks semantic cache, runs LangGraph agent, applies output guard.
+4. Inference writes `QueryEvent`, writes semantic cache, schedules auditor.
+5. Dashboard reads `QueryEvent`, `ReviewItem`, `KnowledgeChunk`, `KnowledgeDocument`, `TrainingRun`, `TrainingExample`.
+6. QStash hits inference weekly trigger; inference creates `TrainingRun` and starts `pipeline/run_pipeline.py`.
+7. Pipeline filters approved examples by tenant/agent, trains/evaluates, updates run status.
+8. Chrome extension captures LiveAgent sessions, exports encrypted/XML data.
 
-Main issue: many dashboard surfaces assume persisted operational data, but current service paths either do not write those rows or stub success without persistence.
+Big state change since previous review: API auth, `QueryEvent` persistence, and pipeline tenant/path fixes mostly landed. Remaining major gaps: extension still broken, knowledge upload does not create usable knowledge, cache controls do not fully control inference cache, OKBET IP allowlist logic still wrong, verification scripts still broken.
 
 ## Findings
 
 ### Critical
 
-`apps/web/app/api/cache/clear/route.ts:L3`: unauthenticated destructive endpoint returns `{ cleared: true }` without tenant check or cache delete. Add `auth()`, require `session.user.tenantId`, delete tenant namespace in Upstash Vector, return real count/result.
+`apps/inference/main.py:L65-L79`: 🔴 bug: `get_real_client_ip()` reads index `len(entries) - TRUSTED_PROXY_HOPS`, so `TRUSTED_PROXY_HOPS=1` returns trusted proxy IP, not real client IP. Use `len(entries) - TRUSTED_PROXY_HOPS - 1`, validate bounds, and fall back safely.
 
-`apps/web/app/api/cache/threshold/route.ts:L3`: unauthenticated config endpoint accepts threshold and returns success without persistence. Add auth, tenant-scoped storage column/key, and inference-side read path.
+`apps/inference/main.py:L169-L173`: 🔴 bug: OKBET IP allowlist applies only when `body.tenant_id == "okbet"`, but web sends `session.user.tenantId` UUID in `apps/web/app/api/chat/route.ts:L41-L44`. Enforce by DB tenant id/slug mapping, not request string.
 
-`apps/web/app/api/knowledge/upload/route.ts:L6`: unauthenticated upload endpoint accepts files from anyone and returns fake processing id. Add auth, file size limit, tenant-scoped storage, parsing/chunking/embedding job, and real document record.
+`apps/inference/main.py:L46-L51`: 🔴 bug: `OKBET_ALLOWED_IPS` contains `"153.53.81"` but project docs list `153.53.253.81`. Fix allowlist and avoid prefix pseudo-CIDR unless explicitly configured.
 
-`apps/web/app/api/knowledge/[id]/route.ts:L3`: unauthenticated delete endpoint returns success for arbitrary id. Add auth and delete only tenant-owned document/vector/storage records.
+`packages/extension/manifest.json:L23-L27`: 🔴 bug: extension build fails because `icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png` are missing. Add icon assets or remove icon block.
 
-`apps/web/app/api/settings/authorized-ips/route.ts:L5`: unauthenticated IP allowlist endpoint exposes GET/POST without tenant. Add auth, validate IP/CIDR, persist tenant-owned allowlist, and use it in inference.
+`packages/extension/src/background/service-worker.ts:L7-L14`: 🔴 bug: start/stop messages only return `{ ok: true }`; no tab/content-script lifecycle, no tenant id stored, no capture control. Store `autocsr_tenant_id`/active state and relay start/stop/snapshot.
 
-`apps/web/app/api/settings/authorized-ips/[ip]/route.ts:L5`: unauthenticated DELETE returns success for any path value. Add auth and tenant-scoped delete.
-
-`apps/web/app/api/settings/danger-zone/clear-training/route.ts:L3`: unauthenticated danger endpoint returns scheduled success. Add auth, confirmation server-side, tenant-scoped `TrainingExample` deletion/job.
-
-`apps/web/app/api/settings/danger-zone/disconnect/route.ts:L3`: unauthenticated danger endpoint returns scheduled success. Add auth, confirmation server-side, tenant deprovision/subscription cancel flow.
-
-`apps/inference/main.py:L236`: weekly trigger starts `python pipeline/run_pipeline.py` relative to current working dir; documented run command is `cd apps/inference && uvicorn main:app`, so path resolves to missing `apps/inference/pipeline/run_pipeline.py`. Use absolute repo path/env `PIPELINE_DIR`, or set `cwd` to repo root and invoke real script.
-
-`apps/inference/main.py:L230`: `TrainingRun` inserted without `tenantId`; `apps/web/app/(dashboard)/training/page.tsx:L22` filters by `tenantId`, so dashboard never shows QStash runs. Decide global vs tenant runs; for OKBET pilot insert OKBET tenant id or add global training UI.
+`packages/extension/src/content/observer.ts:L67-L70`: 🔴 bug: capture defaults to tenant `"unknown"`. Block capture until tenant id exists in `chrome.storage.session`.
 
 ### High
 
-`apps/inference/main.py:L183`: inference returns response but never creates `QueryEvent`. Dashboard metrics, cache page, agents page, billing usage, live feed all read `QueryEvent`, so production dashboard stays empty. Insert tenant-scoped `QueryEvent` for cache hits and misses, including `queryHash`, `queryText`, `responseText`, `agentType`, `cacheHit`, `resolved`, `confidenceScore`, `resolutionMs`, `modelVersion`, `flaggedForReview`.
+`apps/web/app/api/knowledge/upload/route.ts:L31-L41`: 🔴 bug: upload only creates `KnowledgeDocument` with `PROCESSING`; it never stores file, parses content, chunks, embeds, updates status/chunk count, or creates `KnowledgeChunk`. Add storage + parse/chunk/embed worker, or mark feature disabled.
 
-`apps/inference/auditor/judge.py:L66`: auditor can update `QueryEvent` only when `query_event_id` is passed, but `main.py:L176` never passes one. Create `QueryEvent` before `schedule_audit()` and pass id.
+`apps/web/app/(dashboard)/knowledge/page.tsx:L50-L57`: 🔴 bug: documents count hardcoded `0` while upload persists `KnowledgeDocument`. Query document count and show actual status.
 
-`pipeline/convert.py:L26`: training fetch reads all approved examples across all tenants. Add tenant scope for pilot or per-tenant pipeline; otherwise one tenant trains on another tenant's data.
+`apps/web/app/(dashboard)/knowledge/actions.ts:L21-L28`: 🟡 risk: manual knowledge chunk writes no embedding. Agents/vector search cannot use it unless another process embeds later. Add embedding on chunk create or a backfill job.
 
-`pipeline/run_pipeline.py:L31`: `convert.py` ignores `agent_type`; `pipeline/convert.py:L26` supports filter but `main()` never receives it. Pass agent type through CLI or remove misleading per-agent run arg.
+`apps/web/app/api/cache/clear/route.ts:L18-L25`: 🔴 bug: failed vector reset returns success. Return non-2xx on reset failure and surface error in UI.
 
-`pipeline/convert.py:L65`: comment says temporal split newest 30%, but code shuffles before split at L63, so split is random. Sort by `createdAt` before splitting, then shuffle final train set.
+`apps/web/app/api/cache/entries/route.ts:L3-L5`: 🔴 bug: cache entries endpoint is unauthenticated stub. Add auth + tenant namespace listing or remove route.
 
-`pipeline/run_pipeline.py:L59`: final update never sets `examplesUsed`, `evalDelta`, `adapterVersion`, `baseModelVersion`, or `promoted`; UI displays `examplesUsed`/`evalDelta` but they remain null.
+`apps/web/app/(dashboard)/cache/page.tsx:L203-L204`: 🔴 bug: threshold card hardcodes `0.92`; tenant `cacheThreshold` from Prisma is ignored. Query tenant threshold and pass real value.
 
-`packages/extension/manifest.json:L23`: extension build fails because `icons/icon16.png`, `icon48.png`, `icon128.png` do not exist. Add icons under `packages/extension/icons/` or remove manifest icon block.
+`apps/inference/cache/semantic.py:L10`: 🔴 bug: inference reads `SEMANTIC_CACHE_THRESHOLD` env once; web writes `Tenant.cacheThreshold`. Runtime threshold setting has no effect. Load tenant threshold or sync env/cache config.
 
-`packages/extension/src/background/service-worker.ts:L7`: popup start/stop only returns `{ ok: true }`; no message reaches content script, tenant id never injected, observer auto-starts on page load. Implement tab messaging and storage/session config for `SESSION_START`, `SESSION_END`, tenant id.
+`apps/web/app/(dashboard)/cache/page.tsx:L185-L200`: 🟡 risk: UI documents `DELETE /api/cache/{queryHash}`, but only `DELETE /api/cache/clear` exists. Add per-entry route or fix docs.
 
-`packages/extension/src/content/observer.ts:L67`: tenant id defaults to `"unknown"`, producing unusable/cross-tenant training exports. Load tenant id from authenticated setup/storage before capture; block capture if missing.
+`apps/web/app/(dashboard)/settings/billing/page.tsx:L35-L44`: 🔴 bug: UI shows Starter `$49/mo` and Growth `$199/mo`; `CLAUDE.md` says Polar products are `$149/mo` and `$499/mo`. Fix pricing display.
 
-`apps/web/app/(dashboard)/settings/billing/page.tsx:L37`: displayed prices (`$49`, `$199`) do not match configured Polar sandbox products in project docs (`$149`, `$499`). Align pricing UI with product config.
+`apps/web/components/dashboard/settings-tabs.tsx:L29-L55`: 🔴 bug: IP list starts empty, never fetches persisted `authorizedIps`, and mutates local state without checking response. Fetch on mount/SWR and update only after `res.ok`.
+
+`apps/web/app/api/settings/authorized-ips/route.ts:L5`: 🟡 risk: IP regex accepts invalid IPv4 like `999.999.999.999` and `/99` if shape fits until `/d{1,2}`. Use real IP/CIDR parser.
+
+`apps/web/app/api/settings/authorized-ips/route.ts:L33-L36`: 🟡 risk: `push` allows duplicate IPs and races. Deduplicate server-side and return full list.
+
+`apps/web/app/api/settings/danger-zone/disconnect/route.ts:L11-L15`: 🔴 bug: disconnect endpoint returns scheduled message but does not cancel Polar subscription, revoke API key, delete tenant data, or enqueue job. Implement real deprovision flow or disable button.
+
+`apps/web/components/dashboard/settings-tabs.tsx:L249-L254`: 🔴 bug: UI marks disconnect done after any response. Check `res.ok`, show failure, and require server-side confirmation token.
+
+`apps/inference/main.py:L302-L309`: 🟡 risk: custom QStash signature verifier may not match Upstash QStash JWT-style signatures in production. Use official `Receiver`/SDK verification or verify against actual delivered header.
+
+`apps/inference/main.py:L311-L319`: 🟡 risk: active training guard is global. One active tenant blocks all tenants. Scope by `tenantId` if training is per tenant.
+
+`pipeline/run_pipeline.py:L21-L25`: 🟡 risk: `startedAt` never set when run starts. Update `startedAt=NOW()` on `RUNNING` for dashboard accuracy.
+
+`pipeline/run_pipeline.py:L78-L85`: 🟡 risk: training example count silently becomes `0` if file path wrong. Fail run or log error; `0 examples` hides pipeline bug.
+
+`pipeline/promote.py:L16-L34`: 🟡 risk: stale standalone promote script updates fewer fields than `run_pipeline.py`. Remove it or align with current schema (`examplesUsed`, `promoted`, versions).
 
 ### Medium
 
-`apps/web/components/dashboard/settings-tabs.tsx:L42`: authorized IP UI appends local state after any response and never loads existing IPs. Fetch persisted list on mount/SWR and only mutate after `res.ok`.
+`apps/web/components/dashboard/cache-controls.tsx:L17-L23`: 🟡 risk: clear cache button ignores response and always says `Cleared`. Check `res.ok`, show error, keep dialog open on failure.
 
-`apps/web/components/dashboard/settings-tabs.tsx:L243`: danger-zone UI reports `Scheduled` after stub response. Wire to real API result and show failure when server rejects.
+`apps/web/components/dashboard/cache-controls.tsx:L112-L114`: 🔵 nit: threshold number uses negative letter spacing; project rules say numbers/timestamps font-mono, no negative tracking. Remove `letterSpacing: '-0.04em'`.
 
-`apps/web/components/dashboard/cache-controls.tsx:L19`: clear cache button reports success without checking `res.ok`. Check response and show error state.
+`apps/web/components/dashboard/settings-tabs.tsx:L128-L130`: 🔵 nit: IP `Added` column uses `new Date()` for every row, so all rows show today's date. Store `createdAt` with allowlist entries or remove column.
 
-`apps/web/components/dashboard/cache-controls.tsx:L75`: threshold initial value hardcoded from `apps/web/app/(dashboard)/cache/page.tsx:L204`; edits reset on reload and inference keeps using env `SEMANTIC_CACHE_THRESHOLD`. Persist threshold and read it in `apps/inference/cache/semantic.py`.
+`apps/web/components/dashboard/settings-tabs.tsx:L241-L247`: 🟡 risk: clear training data UI says `Scheduled`, but API deletes synchronously and returns count. Show `deleted` count or real job status.
 
-`apps/web/app/(dashboard)/knowledge/page.tsx:L56`: document count hardcoded `0` while upload dialog exists. Back with real document model/API or remove count until implemented.
+`apps/web/app/(dashboard)/training/page.tsx:L8-L15`: 🟡 risk: `TRAINING` enum state exists but style map lacks `TRAINING`; UI falls back to queued style during fine-tune. Add `TRAINING` style.
 
-`apps/web/app/(dashboard)/cache/page.tsx:L196`: docs show `DELETE /api/cache/{queryHash}`, but implemented endpoint is only `DELETE /api/cache/clear`. Add per-entry route or fix docs.
+`apps/web/app/(dashboard)/training/page.tsx:L95-L101`: 🟡 risk: `evalDelta` displayed but pipeline never computes it. Compute delta against previous promoted run or remove column.
 
-`apps/web/app/api/settings/api-key/route.ts:L8`: route uses `redirect('/login')` inside API handler. Return `401` JSON to avoid HTML/redirect response for API clients.
+`apps/web/app/api/settings/api-key/route.ts:L17-L18`: 🟡 risk: empty/missing API key returns `••••`; user sees fake key. Return 404/500 or generate key.
 
-`apps/web/app/(dashboard)/settings/page.tsx:L11`: settings page no longer selects `createdAt`, so tenant tab lost "member since" info from previous UI. Add if still useful.
+`apps/web/app/api/chat/route.ts:L36-L39`: 🟡 risk: `clientIp` is computed but sent as `X-Client-IP`; inference ignores it and reads `X-Forwarded-For`. Either forward expected header through trusted proxy chain or remove dead header.
 
-`apps/web/app/(dashboard)/training/page.tsx:L8`: `TRAINING` enum state exists but UI style map lacks it. Add style to avoid queued fallback during fine-tuning.
+`apps/inference/auditor/judge.py:L149-L160`: 🟡 risk: `schedule_audit()` swallows scheduling errors. Log failure so auditor outages show up.
 
-`apps/inference/cache/semantic.py:L81`: cache write swallows every exception. Log structured warning at least; otherwise dashboard says cache enabled while all writes may fail.
+`apps/inference/auditor/judge.py:L118-L135`: 🟡 risk: new asyncpg pool per sampled audit. Reuse shared pool or pass pool from inference.
 
-`apps/inference/auditor/judge.py:L137`: auditor swallows all exceptions. Add logging/metrics, especially for Anthropic/schema failures.
+`apps/web/scripts/register-qstash-cron.ts:L7-L13`: 🟡 risk: idempotency only checks destination substring. If ngrok changes to Railway, old schedule blocks new registration. Match exact destination and update/delete stale schedules.
 
-`apps/web/scripts/register-qstash-cron.ts:L8`: idempotency check only matches destination substring; if destination changes from ngrok to Railway, old schedule remains and new one is skipped. Match exact destination or update stale schedule.
+`apps/web/lib/env.ts:L23`: 🟡 risk: `NODE_ENV` is required in schema; `bun run cron:register --help` failed because `NODE_ENV` undefined. Give default or set in script.
 
-### Low / Repo Hygiene
+`apps/web/package.json:L11-L13`: 🟡 risk: DB scripts still use `dotenv-cli`, despite `CLAUDE.md` saying dotenv-cli is broken. Replace with Bun `--env-file` wrappers or documented safe commands.
 
-`apps/web/package.json:L7`: `next lint` no longer works in this setup; command fails with `Invalid project directory provided ... /lint`. Replace with supported ESLint command, likely `eslint .` with existing config.
+`apps/web/package.json:L9`: 🔴 bug: `next lint` is invalid with current Next 16 setup; `bun run lint` fails. Replace with `eslint .`.
 
-`package.json:L4`: root has no `typecheck` or `lint` scripts, so `bun run typecheck` fails and `bun run lint` invokes unrelated system command. Add root scripts delegating to web and extension.
+`package.json:L5-L10`: 🔴 bug: root has no `typecheck` or `lint`; `bun run typecheck` fails and `bun run lint` invokes unrelated system Android lint. Add root scripts.
 
-`packages/extension/src/background/service-worker.ts:L4`: `console.log` in extension install path. Fine for dev, remove or gate for production.
+`apps/web/app/(dashboard)/settings/billing/page.tsx:L70-L76`: 🟡 risk: selects `stripeCustomerId` in Polar app. Rename schema/field to Polar or stop selecting unused Stripe field.
 
-Generated/local files present in project folder: `.codex/`, `.serena/`, `.playwright-mcp/`, `.DS_Store`, `apps/web/tsconfig.tsbuildinfo`, Python `__pycache__`. `.gitignore` covers some but not all local tool dirs. Add `.codex/`, `.serena/`, `.playwright-mcp/`, `.DS_Store`, `*.tsbuildinfo` if these should stay local.
+`apps/web/app/api/webhooks/polar/route.ts:L39`: 🟡 risk: webhook logs full event payload. Scrub or disable in production.
 
-## New/Modified File Assessment
+### Low / Hygiene
 
-### New API Routes
+`.gitignore:L55-L60`: `.playwright-mcp/` and `apps/web/tsconfig.tsbuildinfo` ignored, good. `.serena/project.local.yml` ignored via `.serena/.gitignore`. `.codex/` is tracked by commit; decide if desired.
 
-Most new API routes are placeholder stubs. Biggest problem is not just TODOs; client UI treats them as successful production operations. This creates false confidence and weakens security because unauthenticated external requests can hit operational-looking endpoints.
+Local ignored/generated artifacts still present:
 
-Recommended rule: no dashboard API route should ship without:
+- `.DS_Store`
+- `.claude/settings.local.json`
+- `.serena/project.local.yml`
+- `.playwright-mcp/*`
+- `apps/web/.next/*`
+- `apps/web/.env`, `apps/web/.env.local`
+- `apps/inference/.env`
+- Python `__pycache__`
+- `apps/inference/.ruff_cache/*`
 
-- `auth()` guard
-- tenant id from session only
-- concrete persistence/effect
-- JSON `401`/`403` responses, not `redirect()`
-- failure surfaced to caller
+No issue if intentionally ignored. Clean before packaging/deploy artifacts.
 
-### New Dashboard Components
+## New / Modified File Check
 
-`cache-controls.tsx`, `settings-tabs.tsx`, and `upload-dialog.tsx` are visually consistent with current dark dashboard, but they mostly optimistic-update against stub APIs. Wire to persisted server state before relying on them for OKBET pilot.
+Git tree is clean now. No uncommitted new/modified tracked files.
 
-### Modified Dashboard Pages
+Recent new/changed areas reviewed:
 
-`cache/page.tsx`, `knowledge/page.tsx`, `settings/page.tsx` integrate new controls cleanly, but now expose incomplete features. Prefer hiding incomplete controls behind disabled state/feature flag until endpoints work.
+- `apps/web/app/api/cache/*`
+- `apps/web/app/api/knowledge/*`
+- `apps/web/app/api/settings/*`
+- `apps/web/components/dashboard/cache-controls.tsx`
+- `apps/web/components/dashboard/settings-tabs.tsx`
+- `apps/web/components/dashboard/knowledge/upload-dialog.tsx`
+- `apps/web/types/knowledge.ts`
+- `apps/inference/main.py`
+- `pipeline/*`
+- `packages/extension/*`
+- `CLAUDE.md`
+- `session-state-2026-06-08.md`
+
+Previous critical API auth findings are fixed in current code: cache, knowledge, settings, and danger-zone API routes now call `auth()` and use `session.user.tenantId`.
 
 ## Cross-System Gaps
 
-### Dashboard vs Inference
+### Dashboard ↔ Inference
 
-Dashboard analytics depend on `QueryEvent`. Inference handles queries but never writes `QueryEvent`. Result: dashboard overview, agents, cache, billing usage, live feed, and review/audit linkage remain empty or misleading.
+`QueryEvent` write path now exists. Remaining mismatch: OKBET allowlist likely never applies because web sends UUID tenant id, while inference checks literal `"okbet"`.
 
-### Knowledge Base vs Vector Search
+### Cache UI ↔ Semantic Cache
 
-Manual chunk creation writes `KnowledgeChunk`, but no embedding is created. Upload returns fake processing. Agents never retrieve `KnowledgeChunk` or vector docs. Result: "Knowledge Base" currently does not affect answers.
+Dashboard persists tenant threshold, but inference reads env threshold. Clear-all UI catches vector reset failures as success. Cache entry listing/per-entry invalidation still missing.
 
-### Cache Controls vs Semantic Cache
+### Knowledge UI ↔ Agent Answers
 
-Web UI exposes clear/threshold controls. Inference reads threshold from env once and writes to Upstash Vector. Web clear endpoint does not call Vector. Result: cache controls do not control cache.
+Manual chunks and uploaded documents do not create embeddings. No retrieval path in agents was found. Knowledge Base can collect rows, but likely does not improve answers yet.
 
-### Training Pipeline vs Tenant Model
+### Settings IP Allowlist ↔ Inference
 
-Pipeline reads all approved examples globally while training UI filters by tenant. QStash run creates global `TrainingRun`. Result: tenant dashboard cannot see scheduled runs, and training data can cross tenant boundaries.
+Dashboard stores `Tenant.authorizedIps`; inference uses hardcoded `OKBET_ALLOWED_IPS`. User-configured IPs do not affect inference authorization.
 
-### Extension vs Training Pipeline
+### Billing Docs ↔ UI
 
-Extension exports encrypted/XML sessions, but no ingestion endpoint converts exports into `TrainingExample`. Result: Chrome extension does not feed training pipeline yet.
+Docs/Polar IDs say `$149/$499`; billing UI says `$49/$199`. Mismatch visible to paying users.
+
+### Extension ↔ Training Pipeline
+
+Extension exports session data, but no ingestion endpoint converts it into `TrainingExample`. Extension also fails build before ingestion can matter.
+
+### QStash ↔ Pipeline
+
+Pipeline path and tenant env improved. Remaining concerns: signature verification compatibility, global active-run lock, no `startedAt`, no delta calculation.
 
 ## Verification
 
-Commands run:
+Commands run from `/Users/rihan/all-coding-project/autocsr`.
 
 ```bash
-cd /Users/rihan/all-coding-project/autocsr/apps/web && bun run typecheck
+bun run typecheck
 ```
 
-Result: passed.
+Failed:
+
+```text
+error: Script not found "typecheck"
+```
 
 ```bash
-cd /Users/rihan/all-coding-project/autocsr/apps/web && bun run lint
+bun run lint
 ```
 
-Result: failed. `next lint` treats `lint` as project dir: `Invalid project directory provided, no such directory: /Users/rihan/all-coding-project/autocsr/apps/web/lint`.
+Failed. Root script missing, shell resolved unrelated Android `lint` executable and exited code `2`.
 
 ```bash
-cd /Users/rihan/all-coding-project/autocsr/packages/extension && bun run build
+cd apps/web && bun run typecheck
 ```
 
-Result: failed. CRX plugin cannot find `icons/icon16.png`.
+Passed:
+
+```text
+$ tsc --noEmit
+```
 
 ```bash
-cd /Users/rihan/all-coding-project/autocsr && bun run typecheck
+cd apps/web && bun run lint
 ```
 
-Result: failed. Root script missing.
+Failed:
+
+```text
+$ next lint
+Invalid project directory provided, no such directory: /Users/rihan/all-coding-project/autocsr/apps/web/lint
+```
 
 ```bash
-cd /Users/rihan/all-coding-project/autocsr && bun run lint
+cd apps/web && bun run build
 ```
 
-Result: failed. Root script missing; shell resolved unrelated `lint` executable.
+Passed, but warned:
+
+```text
+Next.js inferred your workspace root...
+selected /Users/rihan/pnpm-lock.yaml
+Detected additional lockfiles:
+* /Users/rihan/all-coding-project/autocsr/bun.lock
+```
+
+Do not set `turbopack.root` per project rules. Better remove/relocate stray `/Users/rihan/pnpm-lock.yaml` if not needed.
+
+```bash
+cd packages/extension && bun run build
+```
+
+Failed:
+
+```text
+[crx:manifest-post] ENOENT: Could not load manifest asset "icons/icon16.png".
+```
+
+```bash
+cd apps/web && bun run cron:register --help
+```
+
+Failed before help:
+
+```text
+ZodError: NODE_ENV Required
+```
 
 ## Priority Fix Plan
 
-1. Lock down all new API routes with `auth()` and tenant scoping.
-2. Remove fake-success behavior or hide incomplete UI controls.
-3. Add `QueryEvent` write path in inference and pass created id to auditor.
-4. Fix QStash pipeline subprocess path and decide tenant/global training model.
-5. Tenant-scope `TrainingExample` conversion.
-6. Wire knowledge upload to storage/chunk/embed or disable upload.
-7. Fix extension icons and popup/content lifecycle.
-8. Replace broken lint scripts and add root verification scripts.
-9. Add gitignore entries for local tool/generated artifacts.
-
+1. Fix inference real-client-IP extraction and OKBET tenant matching.
+2. Fix extension icons, service worker, tenant id storage, observer capture gating.
+3. Wire settings `authorizedIps` into inference instead of hardcoded IP list.
+4. Wire knowledge upload/manual chunk to storage, chunking, embedding, retrieval, and document status updates.
+5. Make cache clear/threshold/entries real end-to-end: tenant threshold in inference, reset failure handling, per-entry invalidation.
+6. Fix billing prices to `$149/$499`.
+7. Fix root and web lint/typecheck scripts; remove `dotenv-cli` from DB/cron scripts.
+8. Fix QStash verification with official SDK and scope active-run lock by tenant.
+9. Add `TRAINING` style, compute `evalDelta`, set `startedAt`, and align/remove stale `promote.py`.
+10. Add extension ingestion path to create reviewed `TrainingExample` rows.

@@ -1,0 +1,26 @@
+# AutoCSR robots.txt
+# https://autocsr.ai
+
+User-agent: *
+Allow: /
+
+# Block dashboard and authenticated routes from indexing
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /login
+Disallow: /signup
+Disallow: /_next/
+Disallow: /demo/
+
+# Allow all public marketing pages
+Allow: /
+Allow: /pricing
+Allow: /terms
+Allow: /privacy
+Allow: /refund
+
+# Sitemap
+Sitemap: https://autocsr.ai/sitemap.xml
+
+# Crawl delay for politeness (optional)
+Crawl-delay: 1

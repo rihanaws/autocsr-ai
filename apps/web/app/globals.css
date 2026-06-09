@@ -27,10 +27,10 @@
   --color-border:    #2a2a3a;
   --color-muted:     rgba(255, 255, 255, 0.4);
 
-  /* Typography */
-  --font-display: "Syne", sans-serif;
-  --font-body:    "DM Sans", sans-serif;
-  --font-mono:    "JetBrains Mono", monospace;
+  /* Typography — Geist (display) + Inter (body) + JetBrains Mono */
+  --font-display: var(--font-geist-sans), system-ui, sans-serif;
+  --font-body:    var(--font-body), system-ui, sans-serif;
+  --font-mono:    var(--font-mono), monospace;
 
   /* Radius */
   --radius-brand: 0.75rem;
