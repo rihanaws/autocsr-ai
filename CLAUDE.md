@@ -47,7 +47,7 @@ font-display:Geist 700 (var: --font-geist-sans) | font-body:Inter | font-mono:Je
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
 Week 5: IN PROGRESS
-Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene
+Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene, Block 7 inference/pipeline critical fixes
 Week 5 remaining: Run F (production deploy prep)
 Week 5 ALSO DONE (June 9): font system (Geist+Inter npm), SEO metadata, robots.txt, sitemap.ts, legal pages (terms/privacy/refund), BRAND.md, MASTER_PLAN amended, footer with legal links, OG image
 
@@ -89,7 +89,7 @@ Throws at startup if any required var is missing or malformed.
 Add new vars to BOTH `lib/env.ts` schema AND `.env.local`.
 Depends on `zod` — now a DIRECT dep in apps/web/package.json (added 2026-06-08; was previously phantom/transitive-only, which broke clean `next build`).
 
-## Inference Security (wired 2026-06-08, hardened 2026-06-08)
+## Inference Security (wired 2026-06-08, hardened 2026-06-08, Block 7 2026-06-09)
 Auth: `Authorization: Bearer <INFERENCE_API_SECRET>` — fails-closed if secret missing.
 OKBET IP allowlist: DB-driven via `authorizedIps` on Tenant row — NOT hardcoded. setup:okbet writes correct IPs.
 XFF parsing: `idx = len(entries) - TRUSTED_PROXY_HOPS - 1` — selects entry BEFORE proxy hop (rightmost = proxy itself).
@@ -98,6 +98,7 @@ IP validated via `ipaddress.ip_address()` before allowlist check — rejects mal
 Secret shared: same value in `apps/web/.env.local` and `apps/inference/.env`.
 `load_dotenv()` called at top of main.py — .env auto-loaded on startup.
 X-Client-IP header removed from chat route — proxy chain handles XFF automatically.
+QStash sig: HS256 JWT verified via `verify_qstash_signature(sig, url)` — checks iss=Upstash + sub=exact URL. Header: `Upstash-Signature`.
 
 ## Training Pipeline (wired 2026-06-08, corrected 2026-06-08)
 Location: `pipeline/` — standalone Python package, run inside inference VM
@@ -110,11 +111,11 @@ QStash cron ID: `scd_774mX3PfErmkHCEDcjedjkG7Vs4s` — fires Sunday 02:00 UTC �
 CRITICAL: ngrok must tunnel port 8000 (not 3000) when QStash fires, or update cron destination to Railway URL
 inference/.env already has QSTASH keys + DATABASE_URL filled from .env.local values
 Idempotency guard: trigger returns 409-style skip if any run in QUEUED/RUNNING/TRAINING/EVALUATING
-Security: QStash sig = sole auth for /api/training/weekly-trigger (no Bearer header sent)
+Security: QStash JWT (HS256) = sole auth for /api/training/weekly-trigger — header: Upstash-Signature
 PILOT_TENANT_ID env var: set in inference/.env to OKBET tenant DB id — TrainingRun rows tagged with it
 PIPELINE_DIR env var: set in inference/.env to absolute path of pipeline/ dir (default: relative to main.py)
 convert.py: accepts PIPELINE_TENANT_ID env var to scope examples to one tenant
-run_pipeline.py: fills all TrainingRun fields (examplesUsed, promoted, baseModelVersion, adapterVersion)
+run_pipeline.py: fills all TrainingRun fields (examplesUsed, promoted, baseModelVersion, adapterVersion, startedAt set when status→RUNNING)
 
 ## API Auth Pattern (enforced 2026-06-08)
 ALL API routes must use this guard — no exceptions:
@@ -127,7 +128,7 @@ All knowledge/cache/settings routes are auth-guarded. NOTE: auth + tenant scopin
 ## QueryEvent Persistence (wired 2026-06-08)
 create_query_event() in apps/inference/main.py writes to "QueryEvent" table for EVERY inference call.
 Both cache-hit and full-inference paths write rows — dashboard analytics now have real data.
-Shared asyncpg pool (_db_pool) reused across requests — not recreated per call.
+asyncpg pool initialized in FastAPI lifespan handler — stored at `app.state.db_pool`, reused across all requests. Never call `asyncpg.create_pool()` in a request handler.
 query_event_id passed to schedule_audit() → judge.py links ReviewItem back to QueryEvent row.
 
 ## OKBET Tenant Setup
@@ -155,10 +156,7 @@ Next.js 16 dropped `next lint` command — use `eslint` directly.
 Stale schedules (e.g. old ngrok URLs) deleted before registering new one.
 Idempotent: exits early if exact TRIGGER_URL already registered.
 
-## Known Gaps (Blocks 7–10 — not yet fixed)
-- CRITICAL: workflow.invoke() in main.py is SYNC — blocks uvicorn event loop. Fix: await workflow.ainvoke()
-- CRITICAL: weekly trigger creates new asyncpg pool instead of reusing _db_pool — connection leak
-- HIGH: QStash signature verification uses raw HMAC — should be JWT (HS256) verify with @upstash/qstash
+## Known Gaps (Blocks 8–10 — not yet fixed)
 - HIGH: knowledge upload is a dead stub — no chunking, no embedding, no retrieval wired
 - HIGH: Tenant.cacheThreshold stored in DB but inference reads env var only — setting has no effect
 - HIGH: /demo page is a 404 — hero CTA links to it
