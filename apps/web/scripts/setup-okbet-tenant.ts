@@ -11,6 +11,7 @@ import ws from "ws";
 import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
+import { Redis } from "@upstash/redis";
 
 // Required for neon serverless driver in Node/Bun scripts (not Edge/Next.js)
 neonConfig.webSocketConstructor = ws;
@@ -42,6 +43,20 @@ async function main() {
   });
 
   console.log("✅ OKBET tenant:", tenant.id, "| slug:", tenant.slug, "| tier:", tenant.tier);
+
+  // Invalidate session cache so next request picks up GROWTH tier immediately
+  try {
+    const redisCli = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL!,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+    });
+    await redisCli.del(`session:tenant:${existing.userId}`);
+    console.log(`✅ Invalidated session cache for OKBET user ${existing.userId}`);
+  } catch {
+    // Non-fatal — cache will expire naturally within 60s
+    console.warn("⚠️  Could not invalidate session cache — will expire in ≤60s");
+  }
+
   process.exit(0);
 }
 

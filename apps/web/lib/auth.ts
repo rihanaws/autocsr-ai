@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 import { db } from "@/lib/db";
+import { redis } from "@/lib/redis";
 import { resend } from "@/lib/resend";
 import { env } from "@/lib/env";
 import WelcomeEmail from "@/emails/welcome";
@@ -61,14 +62,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     async session({ session, user }) {
+      session.user.id = user.id;
+
+      const cacheKey = `session:tenant:${user.id}`;
+
+      // 1. Try Redis cache first — avoids DB hit on every request
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached && typeof cached === "string") {
+          const d = JSON.parse(cached) as { tenantId: string; tier: Tier };
+          session.user.tenantId = d.tenantId;
+          session.user.tier = d.tier;
+          return session;
+        }
+      } catch {
+        // Redis failure — fall through to DB, never break auth
+      }
+
+      // 2. Cache miss — query Neon
       const tenant = await db.tenant.findUnique({
         where: { userId: user.id },
         select: { id: true, tier: true },
       });
 
-      session.user.id = user.id;
       session.user.tenantId = tenant?.id ?? "";
       session.user.tier = tenant?.tier ?? "FREE";
+
+      if (tenant) {
+        // 3. Populate cache — 60s TTL
+        try {
+          await redis.setex(
+            cacheKey,
+            60,
+            JSON.stringify({ tenantId: tenant.id, tier: tenant.tier })
+          );
+        } catch {
+          // Redis write failure is non-fatal
+        }
+      }
 
       return session;
     },
