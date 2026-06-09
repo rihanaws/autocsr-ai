@@ -9,6 +9,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 import asyncpg
 from dotenv import load_dotenv
@@ -31,7 +32,10 @@ async def main(training_run_id: str, agent_type: str) -> None:
 
     conn = await asyncpg.connect(os.environ["DATABASE_URL"])
     try:
-        await update_run(conn, training_run_id, "RUNNING")
+        await conn.execute(
+            'UPDATE "TrainingRun" SET status=$1, "startedAt"=$2 WHERE id=$3',
+            "RUNNING", datetime.utcnow(), training_run_id,
+        )
 
         # Step 1: convert — pass tenant_id via env
         convert_env = {**os.environ}

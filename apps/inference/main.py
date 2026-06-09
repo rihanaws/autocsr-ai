@@ -1,5 +1,3 @@
-import hashlib
-import hmac
 import ipaddress
 import os
 import subprocess
@@ -8,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+import jwt as pyjwt
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -23,7 +22,19 @@ from graph.guards.input_guard import check_input
 from graph.guards.output_guard import check_output
 from graph.workflow import workflow
 
-app = FastAPI(title="AutoCSR Inference", version="0.3.0")
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global _db_pool
+    _db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
+    app.state.db_pool = _db_pool
+    yield
+    await _db_pool.close()
+
+
+app = FastAPI(title="AutoCSR Inference", version="0.3.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -108,13 +119,6 @@ class InferResponse(BaseModel):
 _db_pool: asyncpg.Pool | None = None
 
 
-async def _get_pool() -> asyncpg.Pool:
-    global _db_pool
-    if _db_pool is None:
-        _db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
-    return _db_pool
-
-
 async def create_query_event(
     pool: asyncpg.Pool,
     *,
@@ -177,7 +181,7 @@ async def infer(
     if INFERENCE_API_SECRET and credentials.credentials != INFERENCE_API_SECRET:
         raise HTTPException(status_code=401, detail="Invalid API secret")
 
-    pool = await _get_pool()
+    pool = request.app.state.db_pool
 
     allowed_ips = await get_tenant_authorized_ips(pool, body.tenant_id)
     if allowed_ips:
@@ -227,7 +231,7 @@ async def infer(
         )
 
     # Run LangGraph workflow
-    result = workflow.invoke(
+    result = await workflow.ainvoke(
         {
             "query": clean_query,
             "tenant_id": body.tenant_id,
@@ -294,16 +298,28 @@ async def infer(
     )
 
 
-def _verify_qstash_signature(body: bytes, signature: str) -> bool:
+def verify_qstash_signature(signature: str, destination_url: str) -> bool:
     """
-    QStash signs with the current key; falls back to next key during rotation.
-    Signature header format: "Bearer <hex_digest>".
+    Verify QStash JWT. Tries current signing key first, then next key.
+    QStash JWT claims: iss=Upstash, sub=destination URL, exp, nbf, iat, jti.
     """
-    received = signature.removeprefix("Bearer ")
-    for key in (QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY):
-        expected = hmac.new(key.encode(), body, hashlib.sha256).hexdigest()
-        if hmac.compare_digest(expected, received):
+    for key in [QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY]:
+        if not key:
+            continue
+        try:
+            payload = pyjwt.decode(
+                signature,
+                key,
+                algorithms=["HS256"],
+                options={"verify_aud": False},
+            )
+            if payload.get("iss") != "Upstash":
+                continue
+            if payload.get("sub") != destination_url:
+                continue
             return True
+        except pyjwt.InvalidTokenError:
+            continue
     return False
 
 
@@ -313,32 +329,33 @@ ACTIVE_TRAINING_STATUSES = ("QUEUED", "RUNNING", "TRAINING", "EVALUATING")
 @app.post("/api/training/weekly-trigger")
 async def weekly_training_trigger(
     request: Request,
-    x_qstash_signature: Optional[str] = Header(None),
+    x_upstash_signature: Optional[str] = Header(None),
 ):
-    body_bytes = await request.body()
-    if not x_qstash_signature or not _verify_qstash_signature(body_bytes, x_qstash_signature):
+    sig = x_upstash_signature or ""
+    url = str(request.url)
+    if not verify_qstash_signature(sig, url):
         raise HTTPException(status_code=401, detail="Invalid QStash signature")
 
-    async with asyncpg.create_pool(DATABASE_URL) as pool:
-        async with pool.acquire() as conn:
-            # Idempotency guard — refuse to start if a run is already active
-            active = await conn.fetchval(
-                'SELECT id FROM "TrainingRun" WHERE status = ANY($1::text[]) LIMIT 1',
-                list(ACTIVE_TRAINING_STATUSES),
-            )
-            if active:
-                return {"status": "skipped", "reason": "training run already active", "active_run_id": active}
+    pool = request.app.state.db_pool
+    async with pool.acquire() as conn:
+        # Idempotency guard — refuse to start if a run is already active
+        active = await conn.fetchval(
+            'SELECT id FROM "TrainingRun" WHERE status = ANY($1::text[]) LIMIT 1',
+            list(ACTIVE_TRAINING_STATUSES),
+        )
+        if active:
+            return {"status": "skipped", "reason": "training run already active", "active_run_id": active}
 
-            training_run_id = str(uuid.uuid4())
-            await conn.execute(
-                '''
-                INSERT INTO "TrainingRun" (id, status, "tenantId", "createdAt")
-                VALUES ($1, $2, $3, NOW())
-                ''',
-                training_run_id,
-                "QUEUED",
-                PILOT_TENANT_ID or "global",
-            )
+        training_run_id = str(uuid.uuid4())
+        await conn.execute(
+            '''
+            INSERT INTO "TrainingRun" (id, status, "tenantId", "createdAt")
+            VALUES ($1, $2, $3, NOW())
+            ''',
+            training_run_id,
+            "QUEUED",
+            PILOT_TENANT_ID or "global",
+        )
 
     pipeline_dir = os.path.realpath(PIPELINE_DIR)
     subprocess.Popen(

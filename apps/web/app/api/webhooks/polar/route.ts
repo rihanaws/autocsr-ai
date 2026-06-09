@@ -36,8 +36,6 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Webhook parse error" }, { status: 400 });
   }
 
-  console.log('[Polar Sandbox]', event.type, JSON.stringify((event as { data: unknown }).data, null, 2))
-
   try {
     switch (event.type) {
       case "subscription.created":
