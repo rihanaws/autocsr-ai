@@ -50,7 +50,7 @@ Week 5: IN PROGRESS
 Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene, Block 7 inference/pipeline critical fixes
 Week 5 remaining: Run F (production deploy prep)
 Week 5 ALSO DONE (June 9): font system (Geist+Inter npm), SEO metadata, robots.txt, sitemap.ts, legal pages (terms/privacy/refund), BRAND.md, MASTER_PLAN amended, footer with legal links, OG image
-Week 5 ALSO DONE (June 10): session Redis cache (60s TTL), knowledge pipeline wired (upload→chunk→embed→retrieve, commit a3ea0a8) — BLOCKED on Upstash Vector index without embedding model
+Week 5 ALSO DONE (June 10): session Redis cache (60s TTL), knowledge pipeline wired (upload→chunk→embed→retrieve, commit a3ea0a8) — BLOCKED on Upstash Vector index without embedding model; security fixes (commit 0d28bff): retrieve_knowledge per-result tenant_id+type metadata re-check, embed endpoint validates tenantId+documentId against [A-Za-z0-9_-]{1,64} before queuing
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -161,7 +161,8 @@ Idempotent: exits early if exact TRIGGER_URL already registered.
 ## Knowledge Pipeline (wired 2026-06-10, commit a3ea0a8)
 Flow: upload route → KnowledgeDocument row (PROCESSING) → POST inference `/api/knowledge/embed` (Bearer INFERENCE_API_SECRET) → background `_embed_and_store` → chunks upserted to Upstash Vector (`data=` text, index auto-embeds) + KnowledgeChunk rows in Neon → doc status READY/FAILED.
 Chunking: `_chunk_text` in main.py — CHUNK_SIZE 512, OVERLAP 64 (2000 chars → 5 chunks, overlap math).
-Retrieval: `retrieve_knowledge(query_text, tenant_id)` in cache/semantic.py — SYNC (callable from sync agent nodes), tenant-id validated, filter `type="knowledge" AND tenant_id=...`, min_score 0.72, returns [] on any failure. All 5 agents inject chunks into system prompt.
+Retrieval: `retrieve_knowledge(query_text, tenant_id)` in cache/semantic.py — SYNC (callable from sync agent nodes), tenant-id validated, filter `type="knowledge" AND tenant_id=...` PLUS per-result metadata re-check (tenant_id + type, defense-in-depth, commit 0d28bff), min_score 0.72, returns [] on any failure. All 5 agents inject chunks into system prompt.
+Embed endpoint input validation (0d28bff): tenantId via `_validate_tenant_id`, documentId via `_TENANT_ID_RE` ([A-Za-z0-9_-]{1,64}) — both concatenated into vector_id, 400 on bad input.
 BLOCKER: current Upstash Vector index has NO embedding model (`embeddingModel:""`, dim 1536, vectorCount 0) — ALL `data=` text calls rejected ("The index must be created with an embedding model"). Semantic cache lookup/write hit same wall. FIX: create new Upstash Vector index WITH built-in embedding model in console, update UPSTASH_VECTOR_REST_URL/TOKEN in BOTH apps/web/.env.local and apps/inference/.env (vector creds added to inference/.env 2026-06-10).
 
 ## CRITICAL — Shell env leak (root-caused 2026-06-10)
