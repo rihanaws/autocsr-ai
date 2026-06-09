@@ -18,7 +18,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from auditor.judge import schedule_audit
-from cache.semantic import lookup, write, _get_index
+from cache.semantic import lookup, write, _get_index, _validate_tenant_id, _TENANT_ID_RE
 from graph.guards.input_guard import check_input
 from graph.guards.output_guard import check_output
 from graph.workflow import workflow
@@ -270,6 +270,14 @@ async def embed_knowledge(
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer ") or auth_header[7:] != INFERENCE_API_SECRET:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Trust-boundary validation — both ids are concatenated into vector_id
+    try:
+        _validate_tenant_id(req.tenantId)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid tenantId")
+    if not _TENANT_ID_RE.fullmatch(req.documentId):
+        raise HTTPException(status_code=400, detail="Invalid documentId")
 
     background.add_task(_embed_and_store, req)
     return {"status": "queued", "documentId": req.documentId}

@@ -80,10 +80,15 @@ def retrieve_knowledge(
             filter=f'type = "knowledge" AND tenant_id = "{tenant_id}"',
             include_metadata=True,
         )
+        # Double-check returned records belong to caller — guards against filter bypass
         return [
             r.metadata["content"]
             for r in results
-            if r.score >= min_score and r.metadata.get("content")
+            if r.score >= min_score
+            and r.metadata
+            and r.metadata.get("content")
+            and r.metadata.get("tenant_id") == tenant_id
+            and r.metadata.get("type") == "knowledge"
         ]
     except Exception as e:
         print(f"[knowledge/retrieve] error: {e}")
