@@ -50,6 +50,7 @@ Week 5: IN PROGRESS
 Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene, Block 7 inference/pipeline critical fixes
 Week 5 remaining: Run F (production deploy prep)
 Week 5 ALSO DONE (June 9): font system (Geist+Inter npm), SEO metadata, robots.txt, sitemap.ts, legal pages (terms/privacy/refund), BRAND.md, MASTER_PLAN amended, footer with legal links, OG image
+Week 5 ALSO DONE (June 10): session Redis cache (60s TTL), knowledge pipeline wired (upload→chunk→embed→retrieve, commit a3ea0a8) — BLOCKED on Upstash Vector index without embedding model
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -123,7 +124,7 @@ ALL API routes must use this guard — no exceptions:
   if (!session?.user?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const tenantId = session.user.tenantId
 NEVER use redirect() in API routes — return 401 JSON instead.
-All knowledge/cache/settings routes are auth-guarded. NOTE: auth + tenant scoping is done, but several routes are still functional stubs — see Known Gaps below (knowledge upload, cache threshold, disconnect).
+All knowledge/cache/settings routes are auth-guarded. NOTE: auth + tenant scoping is done, but some routes are still functional stubs — see Known Gaps below (cache threshold, disconnect).
 
 ## QueryEvent Persistence (wired 2026-06-08)
 create_query_event() in apps/inference/main.py writes to "QueryEvent" table for EVERY inference call.
@@ -156,11 +157,21 @@ Next.js 16 dropped `next lint` command — use `eslint` directly.
 Stale schedules (e.g. old ngrok URLs) deleted before registering new one.
 Idempotent: exits early if exact TRIGGER_URL already registered.
 
+## Knowledge Pipeline (wired 2026-06-10, commit a3ea0a8)
+Flow: upload route → KnowledgeDocument row (PROCESSING) → POST inference `/api/knowledge/embed` (Bearer INFERENCE_API_SECRET) → background `_embed_and_store` → chunks upserted to Upstash Vector (`data=` text, index auto-embeds) + KnowledgeChunk rows in Neon → doc status READY/FAILED.
+Chunking: `_chunk_text` in main.py — CHUNK_SIZE 512, OVERLAP 64 (2000 chars → 5 chunks, overlap math).
+Retrieval: `retrieve_knowledge(query_text, tenant_id)` in cache/semantic.py — SYNC (callable from sync agent nodes), tenant-id validated, filter `type="knowledge" AND tenant_id=...`, min_score 0.72, returns [] on any failure. All 5 agents inject chunks into system prompt.
+BLOCKER: current Upstash Vector index has NO embedding model (`embeddingModel:""`, dim 1536, vectorCount 0) — ALL `data=` text calls rejected ("The index must be created with an embedding model"). Semantic cache lookup/write hit same wall. FIX: create new Upstash Vector index WITH built-in embedding model in console, update UPSTASH_VECTOR_REST_URL/TOKEN in BOTH apps/web/.env.local and apps/inference/.env (vector creds added to inference/.env 2026-06-10).
+
+## CRITICAL — Shell env leak (root-caused 2026-06-10)
+User shell exports DATABASE_URL → localhost `claude_cache_db` (different project). `load_dotenv()` does NOT override existing env vars — so inference picks up the WRONG DB silently (QueryEvent/doc-status writes vanish; tables don't exist there).
+This also clobbered schema.prisma once: `prisma db pull` ran with shell DATABASE_URL → introspected claude_cache_db → wiped all app models. Restored from HEAD + `bun run db:generate`.
+RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands). NEVER run `prisma db pull`. If typecheck suddenly loses Tier/tenant types → schema.prisma was clobbered, restore from git.
+
 ## Known Gaps (Blocks 8–10 — not yet fixed)
-- HIGH: knowledge upload is a dead stub — no chunking, no embedding, no retrieval wired
+- HIGH: Upstash Vector index lacks embedding model — knowledge retrieval + semantic cache dead until new index created (see Knowledge Pipeline)
 - HIGH: Tenant.cacheThreshold stored in DB but inference reads env var only — setting has no effect
 - HIGH: /demo page is a 404 — hero CTA links to it
-- MEDIUM: session callback hits Neon on every getSession() — needs Redis cache (60s TTL)
 - MEDIUM: disconnect endpoint returns stub — no Polar cancel, no data deletion
 - MEDIUM: console.log(event) in polar webhook dumps full customer data to prod logs
 - 24 Dependabot vulnerabilities (medium priority). Check: `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts`
@@ -176,5 +187,5 @@ bun run email:dev     # React Email preview at localhost:3001
 bun run setup:okbet   # Promote OKBET tenant to GROWTH (run after first login)
 bun run cron:register # Register QStash weekly training cron (idempotent, exact URL match, stale cleanup)
 cd packages/extension && bun run build
-cd apps/inference && /Users/rihan/.pyenv/versions/3.11.9/bin/python -m uvicorn main:app --reload --port 8000
+cd apps/inference && set -a && source .env && set +a && /Users/rihan/.pyenv/versions/3.11.9/bin/python -m uvicorn main:app --reload --port 8000   # source .env FIRST — shell DATABASE_URL leak
 cd pipeline && python run_pipeline.py <run_id> [agent_type]  # Manual pipeline trigger
