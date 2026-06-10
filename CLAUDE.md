@@ -1,5 +1,16 @@
 # AutoCSR — Claude Code Context
 
+## Document Authority (established 2026-06-10, ADR 0001)
+Explicit hierarchy — eliminates multi-document state drift:
+
+- **STATUS.md** → SINGLE source of truth for what is built/verified. Nothing else may assert completion status. A feature is done only when its STATUS.md verification command passes.
+- **apps/web/DESIGN_SYSTEM.md** → SINGLE source of truth for visual tokens and component rules. Supersedes any visual guidance elsewhere.
+- **CLAUDE.md** (this file) → Rules, conventions, stack, commands, and POINTERS to the above. Contains NO completion-status claims and NO duplicated token specs.
+- **docs/decisions/** → Dated, append-only architecture decision records (ADRs). Read for "why", never for "current state". Never edited after writing.
+- **docs/archive/ (session-state-\*, old reviews)** → Frozen historical handoffs. Archive, never source of truth.
+
+If two documents conflict, authority order is: STATUS.md / DESIGN_SYSTEM.md > CLAUDE.md > docs/decisions/ > session-state-*. Lower-authority documents must never be used to override a higher one. When you complete or change project state, update STATUS.md FIRST.
+
 ## Project
 AI-native CSR automation SaaS for online betting.
 Owner: TechSci, Inc. / Sayem Abdullah Rihan
@@ -36,23 +47,13 @@ Model: Hermes-3-Llama-3.1-8B + LoRA adapters
 - Do NOT set turbopack.root in next.config.ts — causes build failures
 - global-error.tsx required in app/ for proper error boundaries
 
-## Design System (canonical since 2026-06-10, commit 8b32b5e)
-AUTHORITY: `apps/web/DESIGN_SYSTEM.md` — single source of truth for ALL visual tokens and component rules. It supersedes this file and BRAND.md on anything visual. Legal hex values are defined ONLY there; if a hex is not in that file, do not use it.
-- Token strategy: arbitrary-hex classes (`bg-[#0f0f18]`) are canonical for the pilot phase — ADR `docs/decisions/0002-arbitrary-hex-canonical.md`. @theme color-token migration is POST-PILOT; do not add @theme color tokens piecemeal.
-- Fonts: Geist (`font-display`) + Inter (`font-body`) + JetBrains Mono (`font-mono`, ALL data values). Syne/DM Sans BANNED. Emails: inline `Inter, Arial, sans-serif`.
-- next/font vars are `--font-geist-sans` / `--font-inter` / `--font-jetbrains-mono` — names intentionally differ from the @theme tokens (`--font-body` etc.); identical names caused circular var() refs. Do not rename back.
-- Product is dark-only: shadcn semantic vars in globals.css `:root` are remapped to the dark palette — NO `.dark` class anywhere; `dark:` classes in components/ui/ are inert scaffold, do not extend them.
-- BRAND.md = voice/positioning/logo ONLY (visual sections stripped 2026-06-10).
-- STATUS.md at repo root tracks design-debt backlog (prefers-reduced-motion, badge radius cap, post-pilot token migration).
+## Design System
+See `apps/web/DESIGN_SYSTEM.md` — single source of truth for ALL visual tokens, fonts, and component rules (Document Authority). Legal hex values, font roles, dark-theme strategy, motion rules: defined ONLY there. Token-strategy "why": ADR `docs/decisions/0002-arbitrary-hex-canonical.md`.
+- next/font vars (`--font-geist-sans` / `--font-inter` / `--font-jetbrains-mono`) intentionally differ from @theme tokens (`--font-body` etc.); identical names caused circular var() refs. Do not rename back.
+- BRAND.md = voice/positioning/logo ONLY — never visual guidance.
 
 ## Build Status
-Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
-Week 5: IN PROGRESS
-Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, dashboard pages, API auth guard pass, QueryEvent persistence, pipeline correctness fixes, Block 3.5 security fixes, Block 4 Chrome extension fixes, Block 5 UI correctness, Block 6 repo hygiene, Block 7 inference/pipeline critical fixes
-Week 5 remaining: Run F (production deploy prep)
-Week 5 ALSO DONE (June 9): font system (Geist+Inter npm), SEO metadata, robots.txt, sitemap.ts, legal pages (terms/privacy/refund), BRAND.md, MASTER_PLAN amended, footer with legal links, OG image
-Week 5 ALSO DONE (June 10): session Redis cache (60s TTL), knowledge pipeline wired (upload→chunk→embed→retrieve, commit a3ea0a8); Upstash Vector blocker RESOLVED — new index AUTOCSR-AI-V2 with bge-base-en-v1.5; security fixes (commit 0d28bff): retrieve_knowledge per-result tenant_id+type metadata re-check, embed endpoint validates tenantId+documentId against [A-Za-z0-9_-]{1,64} before queuing
-Week 5 ALSO DONE (June 10, commits 8b32b5e + 03c1605): design-system canon — apps/web/DESIGN_SYSTEM.md created (visual authority), ADR 0002 (arbitrary-hex canonical), Syne/DM Sans purged from skill file + marketing components + welcome email, circular font var chains fixed, shadcn :root remapped to dark palette (.dark block deleted), dead @theme tokens purged, BRAND.md stripped to voice-only, STATUS.md created. Verified: typecheck/lint/build green, /login pixel-checked. NEXT: "Prompt 2" — documentation hierarchy folding DESIGN_SYSTEM.md + ADRs into authority chain, then Block A.
+See STATUS.md — single source of truth for what is built/verified (Document Authority). This file makes NO completion claims.
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
@@ -127,7 +128,7 @@ ALL API routes must use this guard — no exceptions:
   if (!session?.user?.tenantId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const tenantId = session.user.tenantId
 NEVER use redirect() in API routes — return 401 JSON instead.
-All knowledge/cache/settings routes are auth-guarded. Cache-threshold + disconnect stubs fixed in Block 10 (see below).
+All knowledge/cache/settings routes are auth-guarded. Cache-threshold + disconnect behavior: see "Cache Threshold + Billing Disconnect" below.
 
 ## QueryEvent Persistence (wired 2026-06-08)
 create_query_event() in apps/inference/main.py writes to "QueryEvent" table for EVERY inference call.
@@ -175,12 +176,11 @@ RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands)
 ## Known Gaps
 - 24 Dependabot vulnerabilities (medium priority). Check: `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts`
 
-## Block 10 — Feature Gap Fixes (2026-06-10)
-- cacheThreshold WIRED: main.py `get_tenant_authorized_ips` → `get_tenant_config(pool, tenant_id)` — one Tenant query returns {authorized_ips, cache_threshold}; threshold passed to cache_lookup. FAIL-CLOSED: unknown tenant → 403; DB unreachable → 503 (caller maps non-HTTP exceptions); null cacheThreshold → 0.92 default only.
-- cache/semantic.py: `lookup`/`write` RENAMED `cache_lookup`/`cache_write`; cache_lookup accepts `threshold` param (default SEMANTIC_CACHE_THRESHOLD env); cache entries tagged `type="cache"` in metadata AND filter — distinct from knowledge chunks in shared AUTOCSR-AI-V2 index (critical: without tag, knowledge chunks could match as cache hits).
-- /demo page created: `app/(marketing)/demo/page.tsx` — closed-pilot notice + signup CTA.
-- disconnect endpoint REAL: lists active Polar subs by customerId (= Tenant.stripeCustomerId — field stores POLAR customer id, rename deferred to Run F), `subscriptions.revoke` each (SDK 0.47.1 has revoke, NOT cancel), tier→FREE, nulls stripeCustomerId/stripeSubId, deletes `session:tenant:<userId>` Redis keys.
-- console.log(event) polar webhook gap was stale — already removed in earlier block.
+## Cache Threshold + Billing Disconnect (inference/web)
+- cacheThreshold: main.py `get_tenant_config(pool, tenant_id)` — one Tenant query returns {authorized_ips, cache_threshold}; threshold passed to cache_lookup. FAIL-CLOSED: unknown tenant → 403; DB unreachable → 503 (caller maps non-HTTP exceptions); null cacheThreshold → 0.92 default only.
+- cache/semantic.py: functions are `cache_lookup`/`cache_write` (NOT lookup/write); cache_lookup accepts `threshold` param (default SEMANTIC_CACHE_THRESHOLD env); cache entries tagged `type="cache"` in metadata AND filter — distinct from knowledge chunks in shared AUTOCSR-AI-V2 index (critical: without tag, knowledge chunks could match as cache hits).
+- /demo page: `app/(marketing)/demo/page.tsx` — closed-pilot notice + signup CTA.
+- disconnect endpoint: lists active Polar subs by customerId (= Tenant.stripeCustomerId — field stores POLAR customer id, rename deferred to Run F), `subscriptions.revoke` each (SDK 0.47.1 has revoke, NOT cancel), tier→FREE, nulls stripeCustomerId/stripeSubId, deletes `session:tenant:<userId>` Redis keys.
 
 ## Commands
 bun run dev           # Next.js turbopack
