@@ -3,12 +3,12 @@
 > SINGLE source of truth for what is built/verified (see CLAUDE.md "Document Authority", ADR 0001).
 > A feature is done only when its verification command passes. No other document may assert completion status.
 
-Updated: 2026-06-10
+Updated: 2026-06-11
 
 ## Current
 
-- Week 5 in progress. Remaining: Run F (production deploy prep).
-- NEXT: documentation-hierarchy pass ("Prompt 2") complete → Block A.
+- Week 5 in progress. Run F (production deploy) CORE DONE 2026-06-11: web LIVE on Vercel, inference LIVE on Railway.
+- NEXT: set OPENAI_API_KEY/ANTHROPIC_API_KEY on Railway service (calls crash without) → Block C (C3/C4/C5).
 - OPEN: security-audit Critical items — see "Security Audit (2026-06-10)" below. Audit doc: `docs/session-state-2026-06-10-security-audit.md` (stays out of archive until C-items close).
 
 ## Security Audit (2026-06-10) — open items
@@ -37,6 +37,11 @@ Source: `docs/session-state-2026-06-10-security-audit.md` (audited a repomix exp
 | Jun 10 | Design-system canon (commits `8b32b5e` + `03c1605`): DESIGN_SYSTEM.md created, ADR 0002, Syne/DM Sans purged, circular font-var chains fixed, shadcn `:root` remapped dark, BRAND.md voice-only, STATUS.md created | typecheck/lint/build green; /login pixel-checked |
 | Jun 10 | Block 10 feature-gap fixes: cacheThreshold wired fail-closed, cache_lookup/cache_write rename + `type="cache"` tagging, /demo page, real disconnect endpoint (Polar `subscriptions.revoke`) | typecheck/lint green |
 | Jun 10 | Document Authority hierarchy (ADR 0001): CLAUDE.md de-duplicated, historical docs archived to docs/archive/ | validation block in ADR 0001 |
+| Jun 11 | CI green on main: Node 24 in all workflows (Vercel mandate 2026-06-16), ruff format pass on inference, all 21 `lib/env.ts` vars stubbed in ci.yml (commits `9ff0571`, `45622ec`) | CI run 27309979838 success |
+| Jun 11 | **Web LIVE on Vercel**: project `autocsr` (team rihanaws-projects), rootDirectory `apps/web`, 22 production env vars seeded, `build: prisma generate && next build` (commits `6cb1c63`, `d86f7ca`, `855e70e`) | https://autocsr.vercel.app returns 200; Deploy run 27311445802 Vercel job success |
+| Jun 11 | **Inference LIVE on Railway**: service `inference` (project distinguished-healing), domain https://inference-production-e5c4.up.railway.app, RAILWAY_TOKEN project token in Actions, runtime vars seeded, railway.json start cmd + /health check, requirements.txt corrected to PyPI-valid pins + PyJWT added (commits `8cc61e6`, `b3ae7cb`) | Railway deployment status SUCCESS; startup complete (DB assertion passed); GET /health 200 (owner-confirmed log) |
+| Jun 11 | INFERENCE_SERVICE_URL on Vercel updated to Railway domain (effective from next web deploy) | Vercel env API upsert confirmed |
+| Jun 11 | AGENTS.md re-synced to Document Authority (Next.js 16, DESIGN_SYSTEM.md pointer) — closes backlog item below | commit `9ff0571` |
 
 ## Verification
 
@@ -61,4 +66,5 @@ Feature-specific checks live in the row that claims them ("Verified by" column).
 | POST-PILOT | Fix Never-Use hex violations in the 13 files listed in DESIGN_SYSTEM.md §8 | DESIGN_SYSTEM.md §6/§8 |
 | MEDIUM | 24 Dependabot vulnerabilities — `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts` | CLAUDE.md Known Gaps |
 | MEDIUM | Rename `Tenant.stripeCustomerId` → Polar naming (deferred to Run F) | CLAUDE.md disconnect notes |
-| LOW | AGENTS.md (Codex context) drifted: says Next.js 15, embeds stale design-token hex list, points at `.Codex/skills/design-system.md` — re-sync to Document Authority hierarchy | doc-hierarchy audit 2026-06-10 |
+| HIGH | Set OPENAI_API_KEY + ANTHROPIC_API_KEY on Railway `inference` service — agents/judge crash on first call without them (boot is fine, clients lazy-init) | deploy session 2026-06-11 |
+| MEDIUM | Google OAuth redirect URI `https://autocsr.vercel.app/api/auth/callback/google` must be added in Google console; Polar webhook endpoint URL needs production value; rotate VERCEL_TOKEN (pasted in chat); QStash cron destination still ngrok:8000 → Railway domain | deploy session 2026-06-11 |

@@ -184,10 +184,23 @@ RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands)
 
 ## CI Workflows (.github/workflows, updated 2026-06-11)
 - ci.yml: typecheck/lint/build (web), ruff lint + format check (inference), extension build
-- deploy.yml: Vercel (web) → Railway (inference) on push to main — VERCEL_TOKEN/RAILWAY_TOKEN in repo Actions secrets
+- deploy.yml: Vercel (web) → Railway (inference) on push to main — VERCEL_TOKEN/VERCEL_ORG_ID/VERCEL_PROJECT_ID/RAILWAY_TOKEN in repo Actions secrets
 - Node 24 in ALL workflow jobs — Vercel mandates Node ≥24 from 2026-06-16. Never downgrade.
 - CI runs `ruff format --check` on apps/inference — run `ruff format .` there before committing Python
 - apps/inference/ruff.toml: E402 ignored for main.py only (load_dotenv() must run before local imports)
+- ci.yml env block must stub EVERY var in `lib/env.ts` schema (format-valid: `re_` prefix, `polar_whs_` prefix, UUIDs, ≥32-char secrets) — `next build` validates env at page-data collection
+
+## Production Deploy (wired 2026-06-11)
+- Web → Vercel: project `autocsr` (`prj_o3haPw87FQVf9REb3eJF0TOqcuwj`), team `rihanaws-projects` (`team_851vjgWFg6n9VyaIjHKpC7iM`), URL https://autocsr.vercel.app
+  - Project rootDirectory = `apps/web`; vercel CLI MUST run from repo root (monorepo: turbopack infers workspace root from bun.lock — running inside apps/web breaks it). NEVER set turbopack.root.
+  - `apps/web` build script = `prisma generate && next build` — Vercel has no separate generate step; without it $queryRaw generics collapse to any and typecheck fails
+  - Production env vars seeded 2026-06-11 from .env.local with overrides: NEXTAUTH_URL/NEXT_PUBLIC_APP_URL → https://autocsr.vercel.app, AUTH_TRUST_HOST=true, INFERENCE_SERVICE_URL → Railway domain.
+- Inference → Railway: project `distinguished-healing` (`eabb3346-5f19-44d6-ac9b-6108fb276ad1`), env `production` (`1f0d9b2e-8b6a-41ac-a0c1-237a6607cb10`), service `inference` (`190f4bb6-7939-4e46-9cc6-ba187bf8d9a4`), domain https://inference-production-e5c4.up.railway.app
+  - `apps/inference/railway.json`: uvicorn start cmd ($PORT), /health healthcheck; `.python-version` pins 3.11
+  - RAILWAY_TOKEN = project token `github-actions-deploy` (production-scoped)
+  - Runtime vars seeded from apps/inference/.env (ALLOWED_ORIGIN → vercel URL). OPENAI_API_KEY + ANTHROPIC_API_KEY NOT SET — clients lazy-init, boot OK, calls crash. Set before pilot.
+  - requirements.txt pins MUST be PyPI-verified (`pip install --dry-run -r requirements.txt`) — old pins were fictional (upstash-vector==1.1.6 never existed); PyJWT required (import jwt in main.py)
+- Deploy status/completion claims: STATUS.md only.
 
 ## Commands
 bun run dev           # Next.js turbopack
