@@ -29,17 +29,16 @@ jobs:
       - name: Install Vercel CLI
         run: bun add -g vercel@latest
 
+      # Run from repo root — Vercel project rootDirectory is apps/web;
+      # CLI must see the workspace root (bun.lock) for correct monorepo install
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: apps/web
 
       - name: Build project
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: apps/web
 
       - name: Deploy to Vercel
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: apps/web
 
   deploy-railway:
     name: Deploy Inference to Railway
