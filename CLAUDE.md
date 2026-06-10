@@ -32,17 +32,18 @@ Model: Hermes-3-Llama-3.1-8B + LoRA adapters
 - DB queries MUST filter by tenantId from session (never from request body)
 - ALL numbers/timestamps/agent names → font-mono (JetBrains Mono) — no exceptions
 - Extension: ARIA + data-attributes only, never CSS class selectors
-- Read .claude/skills/design-system.md before writing any new UI component
+- Read apps/web/DESIGN_SYSTEM.md before writing any new UI component (skill file points there too)
 - Do NOT set turbopack.root in next.config.ts — causes build failures
 - global-error.tsx required in app/ for proper error boundaries
 
-## Design Tokens (use exact values — no Tailwind color-* for custom colors)
-bg-void:#060608 | bg-base:#090910 | bg-surface:#0f0f18 | bg-surface-2:#141420 | bg-surface-3:#1a1a28
-border:rgba(255,255,255,0.06) | border-strong:rgba(255,255,255,0.12) | accent-hover:#4338ca
-accent-glow:rgba(79,70,229,0.12) | accent-border:rgba(79,70,229,0.25)
-text:#e8e8f0 | text-sub:#606075 | text-dim:#30303f
-accent:#4f46e5 | green:#22c55e | amber:#f59e0b | red:#ef4444 | blue:#3b82f6
-font-display:Geist 700 (var: --font-geist-sans) | font-body:Inter | font-mono:JetBrains Mono
+## Design System (canonical since 2026-06-10, commit 8b32b5e)
+AUTHORITY: `apps/web/DESIGN_SYSTEM.md` — single source of truth for ALL visual tokens and component rules. It supersedes this file and BRAND.md on anything visual. Legal hex values are defined ONLY there; if a hex is not in that file, do not use it.
+- Token strategy: arbitrary-hex classes (`bg-[#0f0f18]`) are canonical for the pilot phase — ADR `docs/decisions/0002-arbitrary-hex-canonical.md`. @theme color-token migration is POST-PILOT; do not add @theme color tokens piecemeal.
+- Fonts: Geist (`font-display`) + Inter (`font-body`) + JetBrains Mono (`font-mono`, ALL data values). Syne/DM Sans BANNED. Emails: inline `Inter, Arial, sans-serif`.
+- next/font vars are `--font-geist-sans` / `--font-inter` / `--font-jetbrains-mono` — names intentionally differ from the @theme tokens (`--font-body` etc.); identical names caused circular var() refs. Do not rename back.
+- Product is dark-only: shadcn semantic vars in globals.css `:root` are remapped to the dark palette — NO `.dark` class anywhere; `dark:` classes in components/ui/ are inert scaffold, do not extend them.
+- BRAND.md = voice/positioning/logo ONLY (visual sections stripped 2026-06-10).
+- STATUS.md at repo root tracks design-debt backlog (prefers-reduced-motion, badge radius cap, post-pilot token migration).
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)
@@ -51,6 +52,7 @@ Week 5 DONE: env hardening, OKBET pilot config, training pipeline, QStash cron, 
 Week 5 remaining: Run F (production deploy prep)
 Week 5 ALSO DONE (June 9): font system (Geist+Inter npm), SEO metadata, robots.txt, sitemap.ts, legal pages (terms/privacy/refund), BRAND.md, MASTER_PLAN amended, footer with legal links, OG image
 Week 5 ALSO DONE (June 10): session Redis cache (60s TTL), knowledge pipeline wired (upload→chunk→embed→retrieve, commit a3ea0a8); Upstash Vector blocker RESOLVED — new index AUTOCSR-AI-V2 with bge-base-en-v1.5; security fixes (commit 0d28bff): retrieve_knowledge per-result tenant_id+type metadata re-check, embed endpoint validates tenantId+documentId against [A-Za-z0-9_-]{1,64} before queuing
+Week 5 ALSO DONE (June 10, commits 8b32b5e + 03c1605): design-system canon — apps/web/DESIGN_SYSTEM.md created (visual authority), ADR 0002 (arbitrary-hex canonical), Syne/DM Sans purged from skill file + marketing components + welcome email, circular font var chains fixed, shadcn :root remapped to dark palette (.dark block deleted), dead @theme tokens purged, BRAND.md stripped to voice-only, STATUS.md created. Verified: typecheck/lint/build green, /login pixel-checked. NEXT: "Prompt 2" — documentation hierarchy folding DESIGN_SYSTEM.md + ADRs into authority chain, then Block A.
 
 ## Email — Welcome (wired 2026-06-05)
 Template: `emails/welcome.tsx` — React Email, dark theme
