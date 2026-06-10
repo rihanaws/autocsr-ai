@@ -5,7 +5,7 @@ Updated: 2026-06-10
 ## Current
 
 - Week 5 in progress. Remaining: Run F (production deploy prep).
-- Design-system drift killed (2026-06-10): `apps/web/DESIGN_SYSTEM.md` is the single source of truth for all visual tokens and component rules (see ADR `docs/decisions/0002-arbitrary-hex-canonical.md`). Commit: _pending_.
+- Design-system drift killed (2026-06-10): `apps/web/DESIGN_SYSTEM.md` is the single source of truth for all visual tokens and component rules (see ADR `docs/decisions/0002-arbitrary-hex-canonical.md`). Commit: `8b32b5e`.
 
 ## Backlog
 
