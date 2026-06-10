@@ -9,11 +9,24 @@ on:
 env:
   DATABASE_URL: postgresql://stub:stub@localhost:5432/stub
   AUTH_SECRET: stub-secret-for-ci-min-32-chars-long!!
+  AUTH_GOOGLE_ID: stub-google-id
+  AUTH_GOOGLE_SECRET: stub-google-secret
   NEXTAUTH_URL: http://localhost:3000
   UPSTASH_REDIS_REST_URL: https://stub.upstash.io
   UPSTASH_REDIS_REST_TOKEN: stub-token
   UPSTASH_VECTOR_REST_URL: https://stub.upstash.io
   UPSTASH_VECTOR_REST_TOKEN: stub-token
+  QSTASH_TOKEN: stub-token
+  QSTASH_CURRENT_SIGNING_KEY: stub-signing-key
+  QSTASH_NEXT_SIGNING_KEY: stub-signing-key
+  RESEND_API_KEY: re_stub_key_for_ci
+  POLAR_ACCESS_TOKEN: stub-token
+  POLAR_WEBHOOK_SECRET: polar_whs_stub_for_ci
+  POLAR_PRODUCT_ID_STARTER: 00000000-0000-0000-0000-000000000001
+  POLAR_PRODUCT_ID_GROWTH: 00000000-0000-0000-0000-000000000002
+  POLAR_PRODUCT_ID_ENTERPRISE: 00000000-0000-0000-0000-000000000003
+  INFERENCE_API_SECRET: stub-inference-secret-min-32-chars!!
+  INFERENCE_SERVICE_URL: http://localhost:8000
   NEXT_PUBLIC_APP_URL: http://localhost:3000
 
 jobs:
