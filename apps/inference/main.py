@@ -26,10 +26,35 @@ from graph.workflow import workflow
 from contextlib import asynccontextmanager
 
 
+_REQUIRED_TABLES = ("Tenant", "QueryEvent", "KnowledgeChunk")
+
+
+async def _assert_app_database(pool: asyncpg.Pool) -> None:
+    """Fail fast if DATABASE_URL points at the wrong database.
+
+    The shell exports a DATABASE_URL for a different local project, and
+    load_dotenv() does not override pre-set env vars — writes then vanish
+    silently into a DB where these tables don't exist.
+    """
+    rows = await pool.fetch(
+        "SELECT table_name FROM information_schema.tables "
+        "WHERE table_schema = 'public' AND table_name = ANY($1::text[])",
+        list(_REQUIRED_TABLES),
+    )
+    missing = set(_REQUIRED_TABLES) - {r["table_name"] for r in rows}
+    if missing:
+        raise RuntimeError(
+            f"DATABASE_URL points at the wrong database: missing tables {sorted(missing)}. "
+            "Likely the shell DATABASE_URL leak — run `set -a && source .env && set +a` "
+            "before starting uvicorn (see CLAUDE.md, Shell env leak)."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _db_pool
     _db_pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=5)
+    await _assert_app_database(_db_pool)
     app.state.db_pool = _db_pool
     yield
     await _db_pool.close()

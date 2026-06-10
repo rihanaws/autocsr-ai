@@ -13,6 +13,9 @@ build/
 .env
 .env.local
 .env.*.local
+_env.local
+_env.*
+client_secret*.json
 
 # Bun
 bun.lockb

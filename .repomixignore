@@ -1,0 +1,9 @@
+# Repomix excludes — the 2026-06-10 secret leak went through a repomix export
+# that bundled _env.local (underscore name dodged the .env.local gitignore rule).
+# Gitignore alone does not bind the export tool; keep these in sync with .gitignore.
+.env*
+_env.local
+_env.*
+client_secret*.json
+*.pem
+*.key

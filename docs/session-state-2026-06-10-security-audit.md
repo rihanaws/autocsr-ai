@@ -21,11 +21,13 @@
   all Upstash REST tokens (Redis/Vector/QStash), `INFERENCE_API_SECRET`.
 - `client_secret_*.json` (Google OAuth web client_secret) is present and **not gitignored**.
 - `.gitignore` ignores `.env.local` but the file is `_env.local` (underscore) → **rule does not match**.
+- VERIFIED 2026-06-11: files were never tracked in git (history clean) — exposure was via the repomix
+  EXPORT, not the repo. History scrub N/A and removed from actions. See STATUS.md C1 row for rotation status.
 - ACTIONS:
-  1. `git rm --cached _env.local client_secret_*.json`; add `_env.local` and `client_secret_*.json` to `.gitignore`.
+  1. Add `_env.local`, `_env.*`, `client_secret*.json` to `.gitignore`; add `.repomixignore` excluding the
+     same patterns + `.env*` (the export tool was the leak vector).
   2. Rotate EVERY credential above (assume compromised). Neon password, AUTH_SECRET, Google OAuth secret,
      Polar token+webhook secret, Resend key, all Upstash tokens, INFERENCE_API_SECRET.
-  3. Scrub git history (`git filter-repo` or BFG) — rotation alone doesn't remove them from history.
 
 ### C2 — Inference layer has no per-tenant authorization
 - `apps/inference/main.py`: only gate is shared `INFERENCE_API_SECRET`; `tenant_id` is trusted from the

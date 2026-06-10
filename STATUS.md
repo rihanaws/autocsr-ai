@@ -17,13 +17,13 @@ Source: `docs/session-state-2026-06-10-security-audit.md` (audited a repomix exp
 
 | Item | Claim | Verified against live repo |
 |------|-------|---------------------------|
-| C1 | `_env.local` + `client_secret_*.json` committed with live secrets | **STALE**: `git ls-files` + `git log --all --diff-filter=A` show neither file ever tracked; neither exists on disk. Residual risk: secrets were in the repomix EXPORT — if that export was shared externally, rotate the credentials listed in C1. |
-| C2 | Inference: shared secret only, `tenant_id` trusted from body; "no IP check in main.py" | **PARTIALLY STALE**: IP allowlist IS wired (main.py:91/107/316, DB-driven). Core gap likely real: single shared `INFERENCE_API_SECRET`, no per-tenant binding of tenant_id to caller. OPEN. |
+| C1 | `_env.local` + `client_secret_*.json` committed with live secrets | ⚠️ **EXPOSED-VIA-EXPORT (not via git)**. Files never tracked; git history clean (`git ls-files` + `git log --all --diff-filter=A` empty); filter-repo scrub N/A. Exposure vector: repomix export bundled `_env.local` (underscore name dodged the `.env.local` gitignore rule); export was shared with an external AI reviewer (Claude.ai "CSR AI" project context only). Treat ALL credentials in C1 as compromised. Rotation: Neon password ✅, AUTH_SECRET ✅, Google OAuth secret ✅, Polar token + webhook secret ✅, Resend key ✅, Upstash Redis/Vector/QStash tokens ✅, INFERENCE_API_SECRET ✅ — all rotated, new values set in GitHub Actions secrets (owner-confirmed 2026-06-11). Preventive excludes shipped: `.gitignore` + `.repomixignore` (this commit). |
+| C2 | Inference: shared secret only, `tenant_id` trusted from body; "no IP check in main.py" | IP-allowlist sub-claim **CLOSED** (main.py:91/107/316, DB-driven). Core gap **OPEN**: single shared `INFERENCE_API_SECRET`, no per-tenant binding of tenant_id to caller — **Block B still required**. |
 | C3 | No prompt-injection defense in agents | OPEN — not re-verified. |
 | C4 | `_is_csr_relevant` substring matching is a no-op scope filter | OPEN — not re-verified. |
 | C5 | Flagged/low-confidence responses get cached and replayed (intra-tenant cache poisoning) | OPEN — Block 10 wired threshold but flagged-response write-gating not confirmed. |
 | H1–H5, M1–M3 | Rate limiting, auditor async, output guard, extension vault/start-stop, anonymizer, webhook map, slug collision | OPEN — not re-verified. |
-| M4 | weekly-trigger unauthenticated | **STALE**: QStash HS256 JWT verified (main.py:432/467, Block 7). |
+| M4 | weekly-trigger unauthenticated | **CLOSED**: QStash HS256 JWT verified (main.py:432/467, Block 7). |
 - Design-system drift killed (2026-06-10): `apps/web/DESIGN_SYSTEM.md` is the single source of truth for all visual tokens and component rules (see ADR `docs/decisions/0002-arbitrary-hex-canonical.md`). Commit: `8b32b5e`.
 
 ## Shipped (verified)
