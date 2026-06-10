@@ -119,3 +119,12 @@ bun run cron:register # Register QStash weekly training cron (idempotent)
 cd packages/extension && bun run build
 cd apps/inference && uvicorn main:app --reload --port 8000
 cd pipeline && python run_pipeline.py <run_id> [agent_type]  # Manual pipeline trigger
+
+
+<claude-mem-context>
+# Memory Context
+
+# [autocsr] recent context, 2026-06-10 4:21am GMT+6
+
+No previous sessions found.
+</claude-mem-context>

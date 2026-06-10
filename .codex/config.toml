@@ -1,5 +1,34 @@
+# Project: autocsr
+# AI-powered customer support / CSR automation
+# Stack: Next.js 14 App Router, Prisma, PostgreSQL (Neon), Chatwoot integration, Vercel
+
+# Auto-run only known-safe commands; ask for approval on everything else
+approval_policy = "untrusted"
+
+[features]
+goals = true
+
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+NEXT_PUBLIC_APP_NAME = "autocsr"
+NODE_ENV = "development"
+
+# Project-scoped skills (repo scope)
+[[skills.config]]
+path = ".agents/skills/autocsr-domain"
+enabled = true
+
+# ---------------------------------------------------------------------------
+# MCP SERVERS (pre-existing)
+# ---------------------------------------------------------------------------
+
 [mcp_servers.Polar]
 url = "https://mcp.polar.sh/mcp/polar-mcp"
 
 [mcp_servers.Polar-Sandbox]
 url = "https://mcp.polar.sh/mcp/polar-sandbox"
+
+[sandbox_workspace_write]
+network_access = true
