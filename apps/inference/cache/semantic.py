@@ -67,9 +67,9 @@ def cache_lookup(
 
 def retrieve_knowledge(
     query_text: str,
-    tenant_id:  str,
-    top_k:      int   = 3,
-    min_score:  float = 0.72,
+    tenant_id: str,
+    top_k: int = 3,
+    min_score: float = 0.72,
 ) -> list[str]:
     """
     Sync — safe to call from sync LangGraph agent nodes.

@@ -2,6 +2,10 @@
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]
 
+[lint.per-file-ignores]
+# load_dotenv() must run before local modules are imported (they read env at import time)
+"main.py" = ["E402"]
+
 [format]
 quote-style = "double"
 indent-style = "space"

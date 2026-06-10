@@ -4,12 +4,14 @@ import os
 import subprocess
 import time
 import uuid
-from datetime import datetime, timezone
 from typing import Optional
 
 import jwt as pyjwt
 from dotenv import load_dotenv
+
 load_dotenv()
+
+from contextlib import asynccontextmanager
 
 import asyncpg
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
@@ -18,13 +20,16 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from auditor.judge import schedule_audit
-from cache.semantic import cache_lookup, cache_write, _get_index, _validate_tenant_id, _TENANT_ID_RE
+from cache.semantic import (
+    _TENANT_ID_RE,
+    _get_index,
+    _validate_tenant_id,
+    cache_lookup,
+    cache_write,
+)
 from graph.guards.input_guard import check_input
 from graph.guards.output_guard import check_output
 from graph.workflow import workflow
-
-from contextlib import asynccontextmanager
-
 
 _REQUIRED_TABLES = ("Tenant", "QueryEvent", "KnowledgeChunk")
 
@@ -75,10 +80,12 @@ if not INFERENCE_API_SECRET:
     raise RuntimeError("INFERENCE_API_SECRET env var is required and must be non-empty")
 
 QSTASH_CURRENT_SIGNING_KEY = os.getenv("QSTASH_CURRENT_SIGNING_KEY", "")
-QSTASH_NEXT_SIGNING_KEY    = os.getenv("QSTASH_NEXT_SIGNING_KEY", "")
-DATABASE_URL               = os.getenv("DATABASE_URL", "")
+QSTASH_NEXT_SIGNING_KEY = os.getenv("QSTASH_NEXT_SIGNING_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 if not QSTASH_CURRENT_SIGNING_KEY or not QSTASH_NEXT_SIGNING_KEY:
-    raise RuntimeError("QSTASH_CURRENT_SIGNING_KEY and QSTASH_NEXT_SIGNING_KEY are required")
+    raise RuntimeError(
+        "QSTASH_CURRENT_SIGNING_KEY and QSTASH_NEXT_SIGNING_KEY are required"
+    )
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is required")
 
@@ -129,12 +136,12 @@ async def get_tenant_config(pool: asyncpg.Pool, tenant_id: str) -> dict:
     if not row:
         raise HTTPException(status_code=403, detail="Tenant not found")
     return {
-        "authorized_ips":  list(row["authorizedIps"] or []),
+        "authorized_ips": list(row["authorizedIps"] or []),
         "cache_threshold": float(row["cacheThreshold"] or 0.92),
     }
 
 
-CHUNK_SIZE    = 512
+CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
 
 
@@ -149,10 +156,10 @@ def _chunk_text(text: str) -> list[str]:
 
 
 class KnowledgeEmbedRequest(BaseModel):
-    tenantId:   str
+    tenantId: str
     documentId: str
-    text:       str
-    name:       str
+    text: str
+    name: str
 
 
 class InferRequest(BaseModel):
@@ -187,7 +194,7 @@ async def create_query_event(
     model_version: str = "hermes-3-llama-3.1-8b",
 ) -> str:
     """Insert a QueryEvent row. Returns the new event id. Never raises."""
-    event_id   = str(uuid.uuid4())
+    event_id = str(uuid.uuid4())
     query_hash = hashlib.sha256(
         f"{tenant_id}:{query_text.lower().strip()}".encode()
     ).hexdigest()[:16]
@@ -231,7 +238,9 @@ async def _update_doc_status(document_id: str, status: str, chunk_count: int) ->
                 SET status = $1, "chunkCount" = $2
                 WHERE id = $3
                 """,
-                status, chunk_count, document_id,
+                status,
+                chunk_count,
+                document_id,
             )
     except Exception as e:
         print(f"[knowledge/embed] _update_doc_status error: {e}")
@@ -244,29 +253,33 @@ async def _embed_and_store(req: KnowledgeEmbedRequest) -> None:
         return
 
     try:
-        upserts   = []
+        upserts = []
         db_chunks = []
 
         for i, chunk in enumerate(chunks):
             vector_id = f"kb_{req.tenantId}_{req.documentId}_{i}"
-            upserts.append({
-                "id":   vector_id,
-                "data": chunk,
-                "metadata": {
-                    "type":        "knowledge",
-                    "tenant_id":   req.tenantId,
-                    "document_id": req.documentId,
-                    "chunk_index": i,
-                    "source":      req.name,
-                    "content":     chunk,
-                },
-            })
-            db_chunks.append((
-                vector_id,
-                req.tenantId,
-                chunk,
-                req.name,
-            ))
+            upserts.append(
+                {
+                    "id": vector_id,
+                    "data": chunk,
+                    "metadata": {
+                        "type": "knowledge",
+                        "tenant_id": req.tenantId,
+                        "document_id": req.documentId,
+                        "chunk_index": i,
+                        "source": req.name,
+                        "content": chunk,
+                    },
+                }
+            )
+            db_chunks.append(
+                (
+                    vector_id,
+                    req.tenantId,
+                    chunk,
+                    req.name,
+                )
+            )
 
         # Upstash Vector upsert — text-based, no embedding call needed
         index = _get_index()
@@ -295,9 +308,9 @@ async def _embed_and_store(req: KnowledgeEmbedRequest) -> None:
 
 @app.post("/api/knowledge/embed")
 async def embed_knowledge(
-    req:        KnowledgeEmbedRequest,
+    req: KnowledgeEmbedRequest,
     background: BackgroundTasks,
-    request:    Request,
+    request: Request,
 ) -> dict:
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Bearer ") or auth_header[7:] != INFERENCE_API_SECRET:
@@ -338,7 +351,7 @@ async def infer(
     except Exception:
         # DB unreachable — fail closed, never skip the IP allowlist
         raise HTTPException(status_code=503, detail="Service temporarily unavailable")
-    allowed_ips     = config["authorized_ips"]
+    allowed_ips = config["authorized_ips"]
     cache_threshold = config["cache_threshold"]
     if allowed_ips:
         client_ip = get_real_client_ip(request)
@@ -367,15 +380,15 @@ async def infer(
         resolution_ms = int((time.monotonic() - started) * 1000)
         await create_query_event(
             pool,
-            tenant_id     = body.tenant_id,
-            query_text    = clean_query,
-            response_text = cached["response"],
-            agent_type    = cached.get("agent_type", "GENERAL"),
-            cache_hit     = True,
-            confidence    = cached.get("confidence", 1.0),
-            resolution_ms = resolution_ms,
-            flagged       = cached.get("flagged", False),
-            model_version = "cache",
+            tenant_id=body.tenant_id,
+            query_text=clean_query,
+            response_text=cached["response"],
+            agent_type=cached.get("agent_type", "GENERAL"),
+            cache_hit=True,
+            confidence=cached.get("confidence", 1.0),
+            resolution_ms=resolution_ms,
+            flagged=cached.get("flagged", False),
+            model_version="cache",
         )
         return InferResponse(
             response=cached["response"],
@@ -425,23 +438,23 @@ async def infer(
 
     query_event_id = await create_query_event(
         pool,
-        tenant_id     = body.tenant_id,
-        query_text    = clean_query,
-        response_text = guard_out["response"],
-        agent_type    = result["agent_type"],
-        cache_hit     = False,
-        confidence    = guard_out["confidence"],
-        resolution_ms = resolution_ms,
-        flagged       = final_flagged,
+        tenant_id=body.tenant_id,
+        query_text=clean_query,
+        response_text=guard_out["response"],
+        agent_type=result["agent_type"],
+        cache_hit=False,
+        confidence=guard_out["confidence"],
+        resolution_ms=resolution_ms,
+        flagged=final_flagged,
     )
 
     # Async auditor — fire and forget, never blocks response
     schedule_audit(
-        tenant_id      = body.tenant_id,
-        query          = clean_query,
-        response       = guard_out["response"],
-        agent_type     = result["agent_type"],
-        query_event_id = query_event_id,
+        tenant_id=body.tenant_id,
+        query=clean_query,
+        response=guard_out["response"],
+        agent_type=result["agent_type"],
+        query_event_id=query_event_id,
     )
 
     return InferResponse(
@@ -500,14 +513,18 @@ async def weekly_training_trigger(
             list(ACTIVE_TRAINING_STATUSES),
         )
         if active:
-            return {"status": "skipped", "reason": "training run already active", "active_run_id": active}
+            return {
+                "status": "skipped",
+                "reason": "training run already active",
+                "active_run_id": active,
+            }
 
         training_run_id = str(uuid.uuid4())
         await conn.execute(
-            '''
+            """
             INSERT INTO "TrainingRun" (id, status, "tenantId", "createdAt")
             VALUES ($1, $2, $3, NOW())
-            ''',
+            """,
             training_run_id,
             "QUEUED",
             PILOT_TENANT_ID or "global",
@@ -515,7 +532,12 @@ async def weekly_training_trigger(
 
     pipeline_dir = os.path.realpath(PIPELINE_DIR)
     subprocess.Popen(
-        ["python", os.path.join(pipeline_dir, "run_pipeline.py"), training_run_id, "general"],
+        [
+            "python",
+            os.path.join(pipeline_dir, "run_pipeline.py"),
+            training_run_id,
+            "general",
+        ],
         cwd=pipeline_dir,
         env={**os.environ, "PIPELINE_TENANT_ID": PILOT_TENANT_ID},
         stdout=subprocess.DEVNULL,

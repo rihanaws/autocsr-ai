@@ -17,7 +17,7 @@ For db:push use: `DATABASE_URL="<neon-pooler-url>" bunx prisma db push`
 For one-off scripts: `NODE_ENV=development bun --env-file=.env.local run <script>`
 
 ## Stack
-Runtime: Bun | Frontend: Next.js 15 App Router (NO src/ folder)
+Runtime: Bun | Frontend: Next.js 16 App Router (NO src/ folder)
 Language: TypeScript strict | UI: Shadcn/ui + Tailwind CSS v4
 Animation: Motion — import from 'motion/react'
 DB: Neon PostgreSQL + Prisma 6 | Cache: Upstash Redis + Vector
@@ -32,17 +32,15 @@ Model: Hermes-3-Llama-3.1-8B + LoRA adapters
 - DB queries MUST filter by tenantId from session (never from request body)
 - ALL numbers/timestamps/agent names → font-mono (JetBrains Mono) — no exceptions
 - Extension: ARIA + data-attributes only, never CSS class selectors
-- Read .Codex/skills/design-system.md before writing any new UI component
+- Read apps/web/DESIGN_SYSTEM.md before writing any new UI component
 - Do NOT set turbopack.root in next.config.ts — causes build failures
 - global-error.tsx required in app/ for proper error boundaries
 
-## Design Tokens (use exact values — no Tailwind color-* for custom colors)
-bg-base:#090910 | bg-surface:#0f0f18 | bg-surface-2:#141420
-border:rgba(255,255,255,0.06) | border-strong:rgba(255,255,255,0.12)
-text:#e8e8f0 | text-sub:#606075 | text-dim:#30303f
-accent:#4f46e5 | accent-glow:rgba(79,70,229,0.12)
-green:#22c55e | amber:#f59e0b | red:#ef4444
-font-display:Syne 700 | font-body:DM Sans | font-mono:JetBrains Mono
+## Design Tokens (refer to apps/web/DESIGN_SYSTEM.md for canonical values)
+See [DESIGN_SYSTEM.md](file:///Users/rihan/all-coding-project/autocsr/apps/web/DESIGN_SYSTEM.md) for official typography, color palette (bg-base: #090910, bg-surface: #0f0f18, bg-surface-2: #141420, accent: #4f46e5, etc.), borders, and status colors.
+- Display Font: Geist (weights 700-800, `font-display`)
+- Body Font: Inter (weights 400-500, `font-body`)
+- Mono Font: JetBrains Mono (weights 400-600, `font-mono`) - MUST be used for all data/mono roles.
 
 ## Build Status
 Weeks 1–4: COMPLETE (dashboard, auth, billing, landing, email)

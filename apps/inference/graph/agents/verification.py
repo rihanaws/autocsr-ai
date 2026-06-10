@@ -33,9 +33,8 @@ def verification_agent(query: str, tenant_id: str) -> dict:
         kb_chunks = retrieve_knowledge(query, tenant_id)
         kb_context = ""
         if kb_chunks:
-            kb_context = (
-                "\n\nRelevant knowledge base context:\n"
-                + "\n---\n".join(kb_chunks)
+            kb_context = "\n\nRelevant knowledge base context:\n" + "\n---\n".join(
+                kb_chunks
             )
         full_system = SYSTEM_PROMPT + kb_context
         resp = client.chat.completions.create(

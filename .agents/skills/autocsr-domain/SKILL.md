@@ -5,7 +5,7 @@ description: AutoCSR domain knowledge — multi-tenant AI customer-support autom
 
 # AutoCSR Domain Knowledge
 
-Monorepo: `apps/web` (Next.js 15, dashboard + API), `apps/inference` (FastAPI + LangGraph, Hermes-3-Llama-3.1-8B + LoRA), `packages/extension` (Chrome extension for agent-assist). Always bun. Repo AGENTS.md holds build commands and design tokens — this skill holds domain logic.
+Monorepo: `apps/web` (Next.js 16, dashboard + API), `apps/inference` (FastAPI + LangGraph, Hermes-3-Llama-3.1-8B + LoRA), `packages/extension` (Chrome extension for agent-assist). Always bun. Repo AGENTS.md holds build commands — this skill holds domain logic.
 
 ## Multi-tenancy (highest-priority invariant)
 

@@ -182,6 +182,13 @@ RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands)
 - /demo page: `app/(marketing)/demo/page.tsx` — closed-pilot notice + signup CTA.
 - disconnect endpoint: lists active Polar subs by customerId (= Tenant.stripeCustomerId — field stores POLAR customer id, rename deferred to Run F), `subscriptions.revoke` each (SDK 0.47.1 has revoke, NOT cancel), tier→FREE, nulls stripeCustomerId/stripeSubId, deletes `session:tenant:<userId>` Redis keys.
 
+## CI Workflows (.github/workflows, updated 2026-06-11)
+- ci.yml: typecheck/lint/build (web), ruff lint + format check (inference), extension build
+- deploy.yml: Vercel (web) → Railway (inference) on push to main — VERCEL_TOKEN/RAILWAY_TOKEN in repo Actions secrets
+- Node 24 in ALL workflow jobs — Vercel mandates Node ≥24 from 2026-06-16. Never downgrade.
+- CI runs `ruff format --check` on apps/inference — run `ruff format .` there before committing Python
+- apps/inference/ruff.toml: E402 ignored for main.py only (load_dotenv() must run before local imports)
+
 ## Commands
 bun run dev           # Next.js turbopack
 bun run typecheck     # tsc --noEmit — delegates to apps/web; run after every TS change
