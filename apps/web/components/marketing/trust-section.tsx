@@ -42,7 +42,7 @@ export function TrustSection() {
               </div>
               <div
                 className="mt-1"
-                style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: '#606075' }}
+                style={{ fontSize: '13px', color: '#606075' }}
               >
                 {s.label}
               </div>
@@ -52,7 +52,7 @@ export function TrustSection() {
 
         <p
           className="text-center mt-8"
-          style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: '#606075' }}
+          style={{ fontSize: '13px', color: '#606075' }}
         >
           Built for regulated industries. GDPR-aware. PII scrubbed at ingestion.
         </p>

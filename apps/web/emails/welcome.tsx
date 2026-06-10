@@ -122,7 +122,7 @@ export default function WelcomeEmail({ tenantName, dashboardUrl }: WelcomeEmailP
 // Styles
 const body: React.CSSProperties = {
   backgroundColor: "#090910",
-  fontFamily: '"DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  fontFamily: "Inter, Arial, sans-serif",
   margin: 0,
   padding: "40px 0",
 };
@@ -328,7 +328,7 @@ const ctaButton: React.CSSProperties = {
   backgroundColor: "#4f46e5",
   borderRadius: "8px",
   color: "#ffffff",
-  fontFamily: '"DM Sans", -apple-system, sans-serif',
+  fontFamily: "Inter, Arial, sans-serif",
   fontSize: "14px",
   fontWeight: 600,
   padding: "12px 32px",

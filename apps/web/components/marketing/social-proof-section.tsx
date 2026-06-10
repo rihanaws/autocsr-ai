@@ -41,7 +41,7 @@ export function SocialProofSection() {
 
         <p
           className="text-center mt-6"
-          style={{ fontFamily: 'DM Sans, sans-serif', fontSize: '13px', color: '#606075' }}
+          style={{ fontSize: '13px', color: '#606075' }}
         >
           The next 1,200 similar queries return in 12ms from semantic cache.
         </p>

@@ -5,6 +5,7 @@ paths:
 ---
 # Styling Rules
 
+- Legal hex values are defined ONLY in apps/web/DESIGN_SYSTEM.md. If a hex is not in that file, do not use it.
 - Tailwind v4: CSS-first. @import "tailwindcss" in globals.css. @theme {} for tokens.
 - Never use Tailwind color-* classes for brand colors. Use arbitrary values: bg-[#0f0f18].
 - All borders: border-[rgba(255,255,255,0.06)] not border-gray-*.
