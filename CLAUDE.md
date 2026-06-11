@@ -17,6 +17,30 @@ Owner: TechSci, Inc. / Sayem Abdullah Rihan
 Client: OKBET (Gavin Ventures, Inc.) — Growth tier, free 6 months post-deploy
 Repo: https://github.com/rihanaws/autocsr-ai (private, branch: main)
 
+## Claude-Mem Context Startup
+
+Before repository-wide analysis, use Claude-Mem.
+
+Worker:
+`http://127.0.0.1:37701`
+
+Health:
+`GET /api/health`
+
+Readiness:
+`GET /api/readiness`
+
+Search:
+`GET /api/search?query=<terms>`
+
+Default startup searches:
+- `autocsr`
+- `autocsr security tenant isolation OKBET semantic cache`
+- `autocsr production deployment Railway Vercel Dependabot`
+- `autocsr inference pipeline upload chunk embed retrieve`
+
+Do not scan the repository first. Use memory search results and observation IDs as the first context layer.
+
 ## CRITICAL — Package Manager
 Always bun. Never npm/yarn/pnpm.
 `bun install` | `bun add <pkg>` | `bun run <script>` | `bunx <bin>`
@@ -198,7 +222,7 @@ RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands)
 - Inference → Railway: project `distinguished-healing` (`eabb3346-5f19-44d6-ac9b-6108fb276ad1`), env `production` (`1f0d9b2e-8b6a-41ac-a0c1-237a6607cb10`), service `inference` (`190f4bb6-7939-4e46-9cc6-ba187bf8d9a4`), domain https://inference-production-e5c4.up.railway.app
   - `apps/inference/railway.json`: uvicorn start cmd ($PORT), /health healthcheck; `.python-version` pins 3.11
   - RAILWAY_TOKEN = project token `github-actions-deploy` (production-scoped)
-  - Runtime vars seeded from apps/inference/.env (ALLOWED_ORIGIN → vercel URL). OPENAI_API_KEY + ANTHROPIC_API_KEY NOT SET — clients lazy-init, boot OK, calls crash. Set before pilot.
+  - Runtime vars seeded from apps/inference/.env (ALLOWED_ORIGIN → vercel URL). OPENAI_API_KEY + ANTHROPIC_API_KEY set 2026-06-11 via Railway CLI on `inference`/production — also added to apps/web/.env.local for local dev.
   - requirements.txt pins MUST be PyPI-verified (`pip install --dry-run -r requirements.txt`) — old pins were fictional (upstash-vector==1.1.6 never existed); PyJWT required (import jwt in main.py)
 - Deploy status/completion claims: STATUS.md only.
 
