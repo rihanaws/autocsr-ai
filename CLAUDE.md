@@ -120,6 +120,7 @@ Depends on `zod` — now a DIRECT dep in apps/web/package.json (added 2026-06-08
 
 ## Inference Security (wired 2026-06-08, hardened 2026-06-08, Block 7 2026-06-09)
 Auth: `Authorization: Bearer <INFERENCE_API_SECRET>` — fails-closed if secret missing.
+Per-tenant API keys (Block B/C2, 2026-06-11): `/api/infer` accepts two auth paths. Path 1 — global `INFERENCE_API_SECRET` (internal web→inference, QStash). Path 2 — per-tenant `ak_live_*`/`ak_test_*` key, looked up via SHA-256 hash in `ApiKey` table (`_verify_tenant_api_key` in main.py); enforces `ApiKey.tenantId == body.tenant_id` (403 on mismatch), 401 on invalid/revoked/expired key. `lib/api-key.ts`: `generateApiKey`/`hashApiKey`/`isApiKey` (SHA-256, not bcrypt — high-entropy machine-generated keys). `Tenant.apiKey` plaintext field removed; dedicated `ApiKey` model (keyHash unique, prefix display, environment, revokedAt, expiresAt, lastUsedAt). `setup:okbet` provisions/rotates the per-tenant key, printed once, never stored raw. Settings UI shows prefix + issued date only (no rotate UI — contact support).
 OKBET IP allowlist: DB-driven via `authorizedIps` on Tenant row — NOT hardcoded. setup:okbet writes correct IPs.
 XFF parsing: `idx = len(entries) - TRUSTED_PROXY_HOPS - 1` — selects entry BEFORE proxy hop (rightmost = proxy itself).
 IP validated via `ipaddress.ip_address()` before allowlist check — rejects malformed strings.
