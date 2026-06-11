@@ -5,7 +5,7 @@ transformers==4.47.1
 peft==0.14.0
 bitsandbytes==0.45.0
 asyncpg==0.30.0
-python-dotenv==1.0.1
+python-dotenv>=1.2.2
 evaluate==0.4.3
-nltk==3.9.1
+nltk>=3.9.4
 torch>=2.1.0

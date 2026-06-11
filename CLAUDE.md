@@ -202,7 +202,7 @@ This also clobbered schema.prisma once: `prisma db pull` ran with shell DATABASE
 RULES: start uvicorn with `set -a && source .env && set +a` first (see Commands). NEVER run `prisma db pull`. If typecheck suddenly loses Tier/tenant types → schema.prisma was clobbered, restore from git.
 
 ## Known Gaps
-- 24 Dependabot vulnerabilities (medium priority). Check: `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts`
+- 18 Dependabot pip alerts dismissed (2026-06-11, all in pipeline/requirements.txt — offline training job, not reachable via prod inference API): 15 transformers (trl==0.12.2 pin blocks upgrade to patched versions), 3 NLTK (no stable patch). Remaining 5 nltk/python-dotenv alerts pending rescan after nltk>=3.9.4 / python-dotenv>=1.2.2 bump. Check: `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts --jq '[.[] | select(.state=="open")] | length'`
 
 ## Cache Threshold + Billing Disconnect (inference/web)
 - cacheThreshold: main.py `get_tenant_config(pool, tenant_id)` — one Tenant query returns {authorized_ips, cache_threshold}; threshold passed to cache_lookup. FAIL-CLOSED: unknown tenant → 403; DB unreachable → 503 (caller maps non-HTTP exceptions); null cacheThreshold → 0.92 default only.

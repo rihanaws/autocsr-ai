@@ -64,7 +64,7 @@ Feature-specific checks live in the row that claims them ("Verified by" column).
 | LOW | Remove inert `dark:` variant classes from `components/ui/*` (no `.dark` class exists) | DESIGN_SYSTEM.md §5 |
 | POST-PILOT | Token migration: promote DESIGN_SYSTEM.md §2 palette to readable `@theme` tokens, migrate ~586 arbitrary-hex usages across ~30 files | ADR 0002 / DESIGN_SYSTEM.md §7 |
 | POST-PILOT | Fix Never-Use hex violations in the 13 files listed in DESIGN_SYSTEM.md §8 | DESIGN_SYSTEM.md §6/§8 |
-| MEDIUM | 24 Dependabot vulnerabilities — `gh api /repos/rihanaws/autocsr-ai/dependabot/alerts` | CLAUDE.md Known Gaps |
+| LOW | Dependabot pip alerts (2026-06-11): 18 dismissed (15 transformers — pipeline-only, trl==0.12.2 pin blocks upgrade; 3 NLTK — no stable patch, pipeline-only). 5 nltk/python-dotenv alerts pending rescan after pipeline/requirements.txt bump (nltk>=3.9.4, python-dotenv>=1.2.2) — should auto-close. 0 npm vulns. | CLAUDE.md Known Gaps |
 | MEDIUM | Rename `Tenant.stripeCustomerId` → Polar naming (deferred to Run F) | CLAUDE.md disconnect notes |
 | HIGH | Set OPENAI_API_KEY + ANTHROPIC_API_KEY on Railway `inference` service — agents/judge crash on first call without them (boot is fine, clients lazy-init) | deploy session 2026-06-11 |
 | MEDIUM | Google OAuth redirect URI `https://autocsr.vercel.app/api/auth/callback/google` must be added in Google console; Polar webhook endpoint URL needs production value; rotate VERCEL_TOKEN (pasted in chat); QStash cron destination still ngrok:8000 → Railway domain | deploy session 2026-06-11 |
