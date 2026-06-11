@@ -8,6 +8,22 @@ from upstash_vector import Index
 _TENANT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 SIMILARITY_THRESHOLD = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.92"))
+CACHE_MIN_CONFIDENCE = float(os.getenv("CACHE_MIN_CONFIDENCE", "0.7"))
+
+_ERROR_INDICATORS = [
+    "i'm sorry, i cannot",
+    "i don't have access to",
+    "i cannot help with",
+    "error occurred",
+    "unable to process",
+]
+
+_PII_RE = re.compile(
+    r"\b\d{13,19}\b"  # card/account numbers
+    r"|\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b"  # email
+    r"|\+?\d[\d\s\-]{8,}\d",  # phone numbers
+    re.IGNORECASE,
+)
 
 _index: Index | None = None
 
@@ -100,8 +116,37 @@ def retrieve_knowledge(
         return []
 
 
-def cache_write(query: str, tenant_id: str, response_payload: dict) -> None:
-    """Upsert query + response into vector cache."""
+def cache_write(query: str, tenant_id: str, response_payload: dict) -> bool:
+    """Upsert query + response into vector cache. Returns False if write was skipped."""
+    response = response_payload.get("response", "")
+    confidence = response_payload.get("confidence", 0.0)
+
+    # Guard 1: Don't cache empty or error/refusal responses
+    if not response or len(response.strip()) < 10:
+        print("[semantic_cache] write skipped: response too short", flush=True)
+        return False
+    if any(indicator in response.lower() for indicator in _ERROR_INDICATORS):
+        print(
+            "[semantic_cache] write skipped: response is an error/refusal", flush=True
+        )
+        return False
+
+    # Guard 2: Don't cache low-confidence responses
+    if confidence < CACHE_MIN_CONFIDENCE:
+        print(
+            f"[semantic_cache] write skipped: confidence {confidence} below threshold",
+            flush=True,
+        )
+        return False
+
+    # Guard 3: Don't cache responses that look like they contain PII
+    if _PII_RE.search(query) or _PII_RE.search(response):
+        print(
+            f"[semantic_cache] write skipped: PII pattern detected for tenant {tenant_id}",
+            flush=True,
+        )
+        return False
+
     try:
         _validate_tenant_id(tenant_id)
         index = _get_index()
@@ -119,5 +164,7 @@ def cache_write(query: str, tenant_id: str, response_payload: dict) -> None:
                 }
             ]
         )
+        return True
     except Exception as e:
         print(f"[semantic_cache] write failed: {type(e).__name__}: {e}", flush=True)
+        return False
