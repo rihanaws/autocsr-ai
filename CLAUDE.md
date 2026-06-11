@@ -128,6 +128,8 @@ Secret shared: same value in `apps/web/.env.local` and `apps/inference/.env`.
 `load_dotenv()` called at top of main.py — .env auto-loaded on startup.
 X-Client-IP header removed from chat route — proxy chain handles XFF automatically.
 QStash sig: HS256 JWT verified via `verify_qstash_signature(sig, url)` — checks iss=Upstash + sub=exact URL. Header: `Upstash-Signature`.
+Prompt injection guard (Block C, 2026-06-11): `_check_injection()` in main.py, regex blocklist `_INJECTION_RE` — runs in `/api/infer` before cache lookup/agent dispatch. Match → 400 `{"code":"INJECTION_DETECTED"}`.
+Query length cap: `MAX_QUERY_BYTES=2000` in main.py — oversized query → 400 `{"code":"QUERY_TOO_LONG"}`. Domain-scope filter remains `_is_csr_relevant` allowlist in `graph/guards/input_guard.py`.
 
 ## Training Pipeline (wired 2026-06-08, corrected 2026-06-08)
 Location: `pipeline/` — standalone Python package, run inside inference VM
