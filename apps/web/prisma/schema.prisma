@@ -68,7 +68,6 @@ model Tenant {
   name             String
   slug             String   @unique
   tier             Tier     @default(FREE)
-  apiKey           String   @unique @default(dbgenerated("encode(gen_random_bytes(32), 'hex')"))
   stripeCustomerId String?
   stripeSubId      String?
   cacheThreshold   Float    @default(0.92)
@@ -80,6 +79,7 @@ model Tenant {
   knowledgeDocuments KnowledgeDocument[]
   reviewQueue        ReviewItem[]
   trainingRuns       TrainingRun[]
+  apiKeys            ApiKey[]
 }
 
 enum Tier {
@@ -87,6 +87,31 @@ enum Tier {
   STARTER
   GROWTH
   ENTERPRISE
+}
+
+enum ApiKeyEnv {
+  PRODUCTION
+  DEVELOPMENT
+}
+
+model ApiKey {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name        String
+  keyHash     String    @unique
+  prefix      String
+  environment ApiKeyEnv @default(PRODUCTION)
+
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([keyHash])
 }
 
 model QueryEvent {

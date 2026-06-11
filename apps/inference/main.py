@@ -1,7 +1,9 @@
+import asyncio
 import hashlib
 import ipaddress
 import os
 import re
+import secrets
 import subprocess
 import time
 import uuid
@@ -149,6 +151,51 @@ def get_real_client_ip(request: Request) -> str | None:
     except ValueError:
         return None
     return candidate
+
+
+async def _verify_tenant_api_key(
+    pool: asyncpg.Pool,
+    token: str,
+) -> tuple[str, str] | None:
+    """
+    Verify a per-tenant API key (ak_live_* or ak_test_*).
+
+    Returns (tenantId, apiKeyId) on success, None on failure.
+    Lookup is O(1) — SHA-256 hash indexed in DB, no bcrypt delay.
+    """
+    key_hash = hashlib.sha256(token.encode()).hexdigest()
+    try:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT id, "tenantId"
+                FROM   "ApiKey"
+                WHERE  "keyHash"   = $1
+                  AND  "revokedAt" IS NULL
+                  AND  ("expiresAt" IS NULL OR "expiresAt" > NOW())
+                """,
+                key_hash,
+            )
+    except Exception as exc:
+        print(f"[auth] DB error during API key lookup: {exc}")
+        return None
+
+    if not row:
+        return None
+
+    return str(row["tenantId"]), str(row["id"])
+
+
+async def _update_key_last_used(pool: asyncpg.Pool, key_id: str) -> None:
+    """Best-effort background update — never raises, never blocks a request."""
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute(
+                'UPDATE "ApiKey" SET "lastUsedAt" = NOW() WHERE id = $1',
+                key_id,
+            )
+    except Exception:
+        pass  # non-critical
 
 
 async def get_tenant_config(pool: asyncpg.Pool, tenant_id: str) -> dict:
@@ -364,10 +411,32 @@ async def infer(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> InferResponse:
-    if INFERENCE_API_SECRET and credentials.credentials != INFERENCE_API_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid API secret")
-
     pool = request.app.state.db_pool
+
+    # ── Auth: two paths ────────────────────────────────────────────────
+    #   Path 1 — Global secret  (web→inference, QStash internal calls)
+    #   Path 2 — Per-tenant key (ak_live_* / ak_test_* from operators)
+    provided_token = credentials.credentials
+
+    if secrets.compare_digest(provided_token, INFERENCE_API_SECRET):
+        # Path 1: global secret — tenantId comes from request body, validated below
+        pass
+    elif provided_token.startswith(("ak_live_", "ak_test_")):
+        # Path 2: per-tenant key
+        result = await _verify_tenant_api_key(pool, provided_token)
+        if result is None:
+            raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+        auth_tenant_id, key_id = result
+        if auth_tenant_id != body.tenant_id:
+            raise HTTPException(
+                status_code=403,
+                detail="API key does not belong to the requested tenant",
+            )
+        # Fire-and-forget: update lastUsedAt without blocking the response
+        asyncio.create_task(_update_key_last_used(pool, key_id))
+    else:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    # ── /Auth ───────────────────────────────────────────────────────────
 
     try:
         config = await get_tenant_config(pool, body.tenant_id)

@@ -12,6 +12,7 @@ import { neonConfig } from "@neondatabase/serverless";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "@prisma/client";
 import { Redis } from "@upstash/redis";
+import { generateApiKey } from "../lib/api-key";
 
 // Required for neon serverless driver in Node/Bun scripts (not Edge/Next.js)
 neonConfig.webSocketConstructor = ws;
@@ -56,6 +57,34 @@ async function main() {
     // Non-fatal — cache will expire naturally within 60s
     console.warn("⚠️  Could not invalidate session cache — will expire in ≤60s");
   }
+
+  // ── API key provisioning ─────────────────────────────────────────────
+  const revokedCount = await db.apiKey.updateMany({
+    where: { tenantId: tenant.id, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  if (revokedCount.count > 0) {
+    console.log(`\nRevoked ${revokedCount.count} existing API key(s).`);
+  }
+
+  const { raw, hash, prefix } = generateApiKey("PRODUCTION");
+  await db.apiKey.create({
+    data: {
+      tenantId: tenant.id,
+      name: "OKBET Production",
+      keyHash: hash,
+      prefix,
+      environment: "PRODUCTION",
+    },
+  });
+
+  console.log("\n" + "═".repeat(60));
+  console.log("⚠️  OKBET INFERENCE API KEY — SHOWN ONCE, NEVER STORED");
+  console.log("═".repeat(60));
+  console.log(raw);
+  console.log("═".repeat(60));
+  console.log("Prefix (safe to share for identification):", prefix);
+  console.log("If lost, it can only be regenerated (run setup:okbet again).");
 
   process.exit(0);
 }

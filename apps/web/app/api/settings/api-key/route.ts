@@ -9,11 +9,15 @@ export async function GET() {
   }
   const tenantId = session.user.tenantId
 
-  const tenant = await db.tenant.findUnique({
-    where:  { id: tenantId },
-    select: { apiKey: true },
+  const apiKey = await db.apiKey.findFirst({
+    where: { tenantId, revokedAt: null },
+    orderBy: { createdAt: 'desc' },
+    select: { prefix: true },
   })
 
-  const key = tenant?.apiKey ?? ''
-  return NextResponse.json({ keyPreview: key.slice(0, 8) + '••••••••••••••••' })
+  if (!apiKey) {
+    return NextResponse.json({ prefix: null })
+  }
+
+  return NextResponse.json({ prefix: apiKey.prefix })
 }

@@ -23,9 +23,13 @@ const TIER_STYLES: Record<string, TierStyle> = {
 }
 
 // ─── API Access Tab ───────────────────────────────────────────────────────────
-function ApiAccessTab({ apiKey }: { apiKey: string }) {
-  const [visible, setVisible] = useState(false)
-  const [copied, setCopied] = useState(false)
+interface ApiKeyInfo {
+  prefix: string
+  environment: string
+  createdAt: Date
+}
+
+function ApiAccessTab({ apiKey }: { apiKey: ApiKeyInfo | null }) {
   const [ips, setIps] = useState<string[]>([])
   const [newIp, setNewIp] = useState('')
   const [addingIp, setAddingIp] = useState(false)
@@ -35,12 +39,6 @@ function ApiAccessTab({ apiKey }: { apiKey: string }) {
       .then(r => r.ok ? r.json() : { ips: [] })
       .then(d => setIps(d.ips ?? []))
   }, [])
-
-  function copyKey() {
-    navigator.clipboard.writeText(apiKey)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   async function addIp() {
     if (!newIp.trim()) return
@@ -72,37 +70,28 @@ function ApiAccessTab({ apiKey }: { apiKey: string }) {
         style={{ background: '#0f0f18', border: '1px solid rgba(255,255,255,0.06)' }}
       >
         <p className="font-mono text-[10px] uppercase mb-3" style={{ color: '#606075', letterSpacing: '0.05em' }}>
-          Your API Key
+          API Key
         </p>
         <div className="flex items-center gap-2 mb-3">
           <input
             readOnly
-            value={visible ? apiKey : 'sk-live-' + '•'.repeat(24)}
+            value={apiKey ? `${apiKey.prefix}${'•'.repeat(18)}` : 'No active API key'}
             className="flex-1 font-mono text-[11px] rounded-md px-3 py-2 outline-none"
             style={{
               background: '#080810',
               border: '1px solid rgba(255,255,255,0.06)',
-              color: visible ? '#e8e8f0' : '#606075',
-              letterSpacing: visible ? 'normal' : '0.08em',
+              color: apiKey ? '#e8e8f0' : '#606075',
+              letterSpacing: '0.08em',
             }}
           />
-          <button
-            onClick={() => setVisible(v => !v)}
-            className="font-mono text-[10px] px-3 py-2 rounded-md whitespace-nowrap"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: '#606075' }}
-          >
-            {visible ? 'Hide' : 'Reveal'}
-          </button>
-          <button
-            onClick={copyKey}
-            className="font-mono text-[10px] px-3 py-2 rounded-md whitespace-nowrap"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: copied ? '#22c55e' : '#606075' }}
-          >
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
         </div>
+        {apiKey && (
+          <p className="font-mono text-[10px] mb-2" style={{ color: '#30303f' }}>
+            {apiKey.environment} · Issued on {new Date(apiKey.createdAt).toLocaleDateString()}
+          </p>
+        )}
         <p className="font-mono text-[10px]" style={{ color: '#30303f' }}>
-          Keep this secret. Rotate immediately if compromised.
+          To rotate your API key, contact support.
         </p>
       </div>
 
@@ -353,7 +342,7 @@ function DangerZoneTab() {
 }
 
 // ─── Main export ──────────────────────────────────────────────────────────────
-export function SettingsTabs({ apiKey, tenant }: { apiKey: string; tenant: TenantInfo }) {
+export function SettingsTabs({ apiKey, tenant }: { apiKey: ApiKeyInfo | null; tenant: TenantInfo }) {
   const [active, setActive] = useState<Tab>('API Access')
 
   return (
