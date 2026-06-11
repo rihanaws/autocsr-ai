@@ -1,6 +1,7 @@
 import hashlib
 import ipaddress
 import os
+import re
 import subprocess
 import time
 import uuid
@@ -16,6 +17,7 @@ from contextlib import asynccontextmanager
 import asyncpg
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
@@ -30,6 +32,29 @@ from cache.semantic import (
 from graph.guards.input_guard import check_input
 from graph.guards.output_guard import check_output
 from graph.workflow import workflow
+
+# Prompt injection guard — rejects queries attempting to override agent instructions
+_INJECTION_PATTERNS = [
+    r"ignore\s+(all\s+)?previous\s+instructions?",
+    r"disregard\s+(all\s+)?previous",
+    r"you\s+are\s+now\s+a",
+    r"new\s+system\s+prompt",
+    r"act\s+as\s+(if\s+you\s+are\s+)?a\s+different",
+    r"forget\s+(everything|all)\s+(you\s+know|previous)",
+    r"override\s+(your\s+)?(instructions?|rules?|guis?)",
+    r"<\s*/?system\s*>",  # XML system tag injection
+    r"\[INST\]",  # Llama instruction token injection
+    r"###\s*(Human|Assistant|System)\s*:",  # role header injection
+]
+_INJECTION_RE = re.compile("|".join(_INJECTION_PATTERNS), re.IGNORECASE)
+
+MAX_QUERY_BYTES = 2000  # ~500 tokens, sufficient for any legitimate CSR query
+
+
+def _check_injection(text: str) -> bool:
+    """Returns True if a prompt-injection pattern is detected."""
+    return bool(_INJECTION_RE.search(text))
+
 
 _REQUIRED_TABLES = ("Tenant", "QueryEvent", "KnowledgeChunk")
 
@@ -359,6 +384,27 @@ async def infer(
             raise HTTPException(status_code=403, detail="IP not authorized")
 
     started = time.monotonic()
+
+    # Reject oversized queries before any processing
+    if len(body.query.encode("utf-8")) > MAX_QUERY_BYTES:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Query exceeds maximum allowed length",
+                "code": "QUERY_TOO_LONG",
+            },
+        )
+
+    # Prompt injection guard
+    if _check_injection(body.query):
+        print(f"[infer] injection pattern detected for tenant {body.tenant_id}")
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": "Query contains disallowed patterns",
+                "code": "INJECTION_DETECTED",
+            },
+        )
 
     # Input guard: scope filter + PII redaction
     guard_result = check_input(body.query, body.tenant_id)
