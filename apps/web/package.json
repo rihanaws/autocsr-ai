@@ -34,7 +34,7 @@
     "geist": "^1.7.2",
     "lucide-react": "^1.17.0",
     "motion": "^11.15.0",
-    "next": "16.2.7",
+    "next": "16.2.11",
     "next-auth": "^5.0.0-beta.25",
     "otplib": "^13.4.1",
     "qrcode": "^1.5.4",
